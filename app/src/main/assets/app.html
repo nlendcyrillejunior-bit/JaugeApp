@@ -1,0 +1,1580 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Jaugeage Pro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0B1220;--surface:#131C2E;--surface2:#1A2540;--surface3:#222F4A;
+  --accent:#00C896;--accent2:#0099FF;--text:#E8EEF8;--muted:#7E91B4;
+  --warn:#F5A623;--danger:#E24B4A;--border:#2A3A5C;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#050914;color:var(--text);font-family:"Courier New",monospace;-webkit-font-smoothing:antialiased}
+.app{max-width:430px;min-height:100vh;margin:auto;background:var(--bg);display:flex;flex-direction:column;position:relative}
+.status{height:34px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:11px;color:var(--muted);flex-shrink:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;flex-shrink:0}
+.title{color:var(--accent);font-size:15px;text-transform:uppercase;letter-spacing:2px;font-weight:900}
+.subtitle{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:3px}
+.iconbtn{width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+main{flex:1;padding:15px;overflow-y:auto;overflow-x:hidden}
+.screen{display:none;flex-direction:column;gap:14px}
+.screen.active{display:flex}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:14px}
+.card-title{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:10px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:25px;padding:7px 13px;color:var(--muted);white-space:nowrap;font-size:12px;cursor:pointer;transition:all .15s;user-select:none}
+.chip.active{background:var(--accent);color:#001b14;border-color:var(--accent);font-weight:900}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.comp{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px;cursor:pointer;transition:border-color .15s;user-select:none}
+.comp.done{border-color:var(--accent)}
+.comp:hover{border-color:var(--accent2)}
+.mini{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.comp-name{font-size:13px;font-weight:900;margin:5px 0}
+.big{font-size:26px;font-weight:900;color:var(--accent)}
+.vol{color:var(--accent2);font-size:13px;font-weight:900}
+.bar{height:5px;background:var(--surface3);border-radius:5px;margin-top:8px;overflow:hidden}
+.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:5px;transition:width .4s}
+.total{border:1px solid var(--accent);background:var(--surface2);border-radius:15px;padding:14px;display:flex;justify-content:space-between;align-items:center}
+.total-value{font-size:31px;color:var(--accent);font-weight:900;font-family:"Courier New",monospace}
+.btnrow{display:flex;gap:8px}
+button{cursor:pointer;font-family:"Courier New",monospace;font-size:13px;outline:none}
+.btn{border:0;border-radius:11px;background:var(--accent);color:#001b14;font-weight:900;letter-spacing:1px;padding:12px 14px;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+.btn.full{width:100%}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px;font-family:"Courier New",monospace;font-size:15px;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select option{background:var(--surface2)}
+label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin:8px 0 6px}
+textarea{min-height:74px;resize:vertical}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.numpad button{background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:22px;font-weight:900;padding:16px;transition:background .1s}
+.numpad button:active{background:var(--surface3)}
+.numpad .ok{background:var(--accent);color:#001b14;border-color:var(--accent)}
+.numpad .del{border-color:var(--danger);color:var(--danger)}
+.result{border:1px solid var(--accent2);background:var(--surface2);border-radius:15px;padding:14px;text-align:center}
+.result .value{font-size:42px;color:var(--accent);font-weight:900;font-family:"Courier New",monospace}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--surface3);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px}
+th,td{border-bottom:1px solid var(--border);padding:9px;text-align:left}
+td:first-child{color:var(--accent);font-weight:900}
+td input{padding:7px;font-size:12px;border-radius:8px}
+.bareme-scroll{max-height:400px;overflow-y:auto;border-radius:10px;scrollbar-width:thin;scrollbar-color:var(--accent) var(--surface3)}
+.bareme-scroll::-webkit-scrollbar{width:6px}
+.bareme-scroll::-webkit-scrollbar-track{background:var(--surface3);border-radius:3px}
+.bareme-scroll::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+.hist{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;justify-content:space-between;align-items:center}
+.hist .v{color:var(--accent);font-size:20px;font-weight:900}
+nav{display:flex;background:var(--surface);border-top:1px solid var(--border);padding:8px 0 14px;flex-shrink:0}
+nav button{flex:1;background:transparent;border:0;color:var(--muted);font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button .nav-icon{font-size:18px}
+nav button.active{color:var(--accent);font-weight:900}
+canvas{width:100% !important;height:220px !important;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:block}
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#020817;color:var(--text);border:1px solid var(--accent);padding:11px 18px;border-radius:12px;display:none;max-width:340px;font-size:12px;z-index:99;text-align:center;pointer-events:none;letter-spacing:.5px}
+.badge2{display:inline-block;padding:4px 9px;border-radius:20px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border);margin:2px}
+.badge2.ok{color:var(--accent);border-color:var(--accent);background:rgba(0,200,150,.10)}
+.badge2.warn{color:var(--warn);border-color:var(--warn);background:rgba(245,166,35,.10)}
+.badge2.danger{color:var(--danger);border-color:var(--danger);background:rgba(226,75,74,.10)}
+.kpi{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:8px}
+.kpi-title{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.kpi-value{font-size:14px;font-weight:900;margin-top:4px;color:var(--text);line-height:1.4}
+.sep{height:1px;background:var(--border);margin:12px 0}
+body.light{
+  --bg:#f3f4f6;--surface:#ffffff;--surface2:#f8fafc;--surface3:#e5e7eb;
+  --accent:#00A878;--accent2:#2563eb;--text:#111827;--muted:#6b7280;
+  --border:#d1d5db;
+  background:#e5e7eb;
+}
+body.light .app{background:var(--bg)}
+body.light .numpad button{background:var(--surface2)}
+body.light canvas{background:var(--surface2)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="status">
+    <span id="clock">--:--</span>
+    <span>JAUGE-PRO v1.0</span>
+    <span id="offlineStatus">⚡ Hors-ligne</span>
+  </div>
+  <header>
+    <div>
+      <div class="title" id="headTitle">Jaugeage</div>
+      <div class="subtitle" id="headSub">Creux → Volume</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="iconbtn" onclick="toggleTheme()" id="themeBtn" title="Thème">☀</button>
+      <button class="iconbtn" onclick="toast('Données sauvegardées localement. Export CSV disponible dans Barèmes.')" title="Info">⚙</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ÉCRAN 1: JAUGEAGE -->
+    <section id="home" class="screen active">
+      <div class="card">
+        <div class="card-title">Citerne active</div>
+        <div class="chips" id="tankChips"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Compartiments</div>
+        <div class="grid" id="compGrid"></div>
+      </div>
+      <div class="total">
+        <div>
+          <div class="mini">Volume total</div>
+          <div class="total-value" id="totalVol">—</div>
+          <div class="mini" id="totalVolUnit">litres / dm³</div>
+        </div>
+        <div style="text-align:right">
+          <div class="mini">Capacité totale</div>
+          <div id="totalCap" style="font-size:17px;color:var(--muted)">—</div>
+          <div class="mini" style="margin-top:8px">Remplissage</div>
+          <div id="fillPct" style="font-size:17px;color:var(--accent2)">—</div>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn secondary" onclick="resetMeasures()">⟳ RESET</button>
+        <button class="btn" style="flex:1" onclick="saveReading()">💾 ENREGISTRER</button>
+        <button class="btn secondary" onclick="exportCertificatPDF()" title="Export certificat PDF">📄</button>
+      </div>
+    </section>
+
+    <!-- ÉCRAN 2: NOUVELLE CITERNE -->
+    <section id="new" class="screen">
+      <div class="card">
+        <div class="card-title">Créer une citerne</div>
+        <label>Nom / Référence</label>
+        <input id="newName" placeholder="ex: TC-01">
+        <label>Immatriculation</label>
+        <input id="newPlate" placeholder="ex: LT-SA-046-AT">
+        <label>Description / Notes terrain</label>
+        <textarea id="newDesc" placeholder="Informations complémentaires"></textarea>
+        <div class="grid">
+          <div><label>Constructeur</label><input id="newMaker" placeholder="ex: SIGMA"></div>
+          <div><label>Année</label><input id="newYear" type="number" placeholder="ex: 2024"></div>
+        </div>
+        <div class="grid">
+          <div><label>Produit transporté</label><input id="newProduct" placeholder="ex: Gasoil"></div>
+          <div><label>Prochaine vérification</label><input id="newNextCheck" type="date"></div>
+        </div>
+        <div class="grid">
+          <div>
+            <label>Unité creux</label>
+            <select id="creuxUnit">
+              <option value="cm">cm</option>
+              <option value="mm">mm</option>
+            </select>
+          </div>
+          <div>
+            <label>Unité volume</label>
+            <select id="volUnit">
+              <option value="L">L (litres)</option>
+              <option value="dm³">dm³</option>
+              <option value="m³">m³</option>
+            </select>
+          </div>
+        </div>
+        <label>Nombre de compartiments</label>
+        <input id="nbComp" type="number" value="4" min="1" max="12" oninput="buildNewCompFields()">
+        <div id="newCompFields" style="margin-top:12px"></div>
+        <button class="btn full" style="margin-top:12px" onclick="createTank()">➕ AJOUTER À LA FLOTTE</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Principes de jaugeage</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">
+          Une citerne peut utiliser un barème officiel saisi ou importé, ou un barème généré par points de mesure.<br>
+          Chaque compartiment possède son propre tableau creux-volume et sa courbe de jaugeage.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Flotte actuelle</div>
+        <div id="fleetList"></div>
+        <button class="btn danger full" style="margin-top:10px" onclick="deleteTank()">🗑 Supprimer la citerne active</button>
+      </div>
+    </section>
+
+    <!-- ÉCRAN 3: SAISIE CREUX -->
+    <section id="measure" class="screen">
+      <div class="card">
+        <div class="card-title">Compartiment sélectionné</div>
+        <div style="font-size:11px;color:var(--accent2);margin-bottom:6px" id="selectedTank">—</div>
+        <div id="selectedComp" style="font-size:15px;font-weight:900">—</div>
+        <div id="selectedInfo" style="font-size:11px;color:var(--muted);margin-top:4px">—</div>
+      </div>
+      <div class="card">
+        <div class="chips" id="quickComps" style="margin-bottom:12px"></div>
+        <div class="mini">Hauteur de creux</div>
+        <div style="text-align:center;border:1px solid var(--accent);background:var(--surface2);border-radius:14px;padding:15px;margin:8px 0 12px">
+          <span id="creuxDisplay" style="font-size:52px;color:var(--accent);font-weight:900;font-family:'Courier New',monospace">__</span>
+          <span id="creuxDisplayUnit" style="color:var(--muted);font-size:18px"> cm</span>
+        </div>
+        <div class="numpad">
+          <button onclick="num('7')">7</button>
+          <button onclick="num('8')">8</button>
+          <button onclick="num('9')">9</button>
+          <button onclick="num('4')">4</button>
+          <button onclick="num('5')">5</button>
+          <button onclick="num('6')">6</button>
+          <button onclick="num('1')">1</button>
+          <button onclick="num('2')">2</button>
+          <button onclick="num('3')">3</button>
+          <button onclick="num('.')">.</button>
+          <button onclick="num('0')">0</button>
+          <button class="del" onclick="delNum()">⌫</button>
+        </div>
+      </div>
+      <div class="result" id="resultBox" style="display:none">
+        <div class="mini">Volume calculé</div>
+        <div class="value" id="resultValue">—</div>
+        <div style="color:var(--muted);font-size:13px" id="resultDetail">—</div>
+        <div id="resultStats" style="margin-top:12px;background:var(--surface3);padding:10px;border-radius:10px;font-size:12px;color:var(--accent2)">—</div>
+      </div>
+      <button class="btn full" onclick="validateMeasure()">✓ VALIDER LA MESURE</button>
+    </section>
+
+    <!-- ÉCRAN 4: BARÈMES -->
+    <section id="bareme" class="screen">
+      <div class="card">
+        <div class="card-title">Barème — Identification</div>
+        <div style="font-weight:900;font-size:14px" id="barTankName">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px" id="barTankInfo">—</div>
+        <div id="barMetaBadges" style="margin-top:8px"></div>
+        <div class="sep"></div>
+        <div class="grid">
+          <div>
+            <label>Statut barème</label>
+            <select id="barStatus" onchange="updateBarMeta()">
+              <option value="officiel">Officiel</option>
+              <option value="provisoire">Provisoire</option>
+              <option value="recalculé">Recalculé</option>
+            </select>
+          </div>
+          <div>
+            <label>Version</label>
+            <input id="barVersion" value="v1" onblur="updateBarMeta()" placeholder="v1">
+          </div>
+        </div>
+        <div class="grid">
+          <div>
+            <label>Source</label>
+            <input id="barSource" placeholder="document officiel / terrain" onblur="updateBarMeta()">
+          </div>
+          <div>
+            <label>Date jaugeage</label>
+            <input id="barDate" type="date" onblur="updateBarMeta()">
+          </div>
+        </div>
+        <button class="btn secondary full" style="margin-top:8px" onclick="toggleBaremeLock()" id="lockBtn">🔒 Verrouiller barème officiel</button>
+        <div class="chips" id="barTabs" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Table creux-volume</div>
+        <div class="bareme-scroll">
+          <table>
+            <thead style="position:sticky;top:0;z-index:2"><tr><th>Creux</th><th>Volume</th><th>Δ/cm</th><th></th></tr></thead>
+            <tbody id="barBody"></tbody>
+          </table>
+        </div>
+        <div class="btnrow" style="margin-top:12px;flex-wrap:wrap;gap:6px">
+          <button class="btn secondary" onclick="addEmptyRow()">+ Ligne</button>
+          <button class="btn secondary" onclick="addNextCmRow()">+1 cm</button>
+          <button class="btn secondary" onclick="generateLinearBareme()">Générer</button>
+        </div>
+        <div class="btnrow" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+          <button class="btn secondary" onclick="document.getElementById('csvInput').click()">📥 Importer CSV</button>
+          <button class="btn secondary" onclick="exportCSV()">📤 Exporter CSV</button>
+          <button class="btn danger" onclick="clearBareme()">🗑 Vider</button>
+        </div>
+        <input id="csvInput" type="file" accept=".csv,text/csv,.txt" style="display:none" onchange="importCSVFile(event)">
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px">
+          Format CSV : <strong>creux,volume</strong> — séparateurs acceptés : virgule, point-virgule ou tabulation.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Courbe de jaugeage</div>
+        <canvas id="chart"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Export Documents</div>
+        <button class="btn full" onclick="exportCertificatPDF()">📄 Certificat officiel PDF (format MINCOMMERCE)</button>
+        <button class="btn secondary full" style="margin-top:8px" onclick="exportCourbePDF()">📈 Courbe de jaugeage PDF</button>
+        <button class="btn secondary full" style="margin-top:8px" onclick="exportBaremeCompletPDF()">📋 Barème complet PDF (tous compartiments)</button>
+        <div style="height:1px;background:var(--border);margin:12px 0"></div>
+        <button class="btn secondary full" onclick="exportCertificatWord()">📝 Certificat Word (.docx)</button>
+        <button class="btn secondary full" style="margin-top:8px" onclick="exportBaremeWord()">📝 Barème complet Word (.docx)</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Corrections avancées</div>
+        <div class="grid">
+          <div><label>Température (°C)</label><input id="tempInput" type="number" placeholder="ex: 30"></div>
+          <div><label>Densité</label><input id="densityInput" type="number" step="0.001" placeholder="ex: 0.84"></div>
+        </div>
+        <button class="btn secondary full" style="margin-top:10px" onclick="applyCorrections()">Prévisualiser correction</button>
+        <div id="corrResult" style="display:none;margin-top:10px;padding:10px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--accent2)"></div>
+      </div>
+    </section>
+
+    <!-- ÉCRAN 5: CONTRÔLE QUALITÉ -->
+    <section id="quality" class="screen">
+      <div class="card">
+        <div class="card-title">Contrôle qualité du barème</div>
+        <div style="font-weight:900" id="qualityTank">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px" id="qualityComp">—</div>
+        <div id="qualityBadges" style="margin-top:10px"></div>
+        <div class="chips" id="qualityCompTabs" style="margin-top:12px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Analyse automatique du barème</div>
+        <div id="qualityList"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Traçabilité / Audit</div>
+        <div id="auditList" style="font-size:12px;color:var(--muted);line-height:1.8"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Rapport & recalibrage</div>
+        <button class="btn full" onclick="generateReport()">📋 Générer rapport de jaugeage</button>
+        <button class="btn secondary full" style="margin-top:8px" onclick="checkRecalibration()">🔧 Vérifier besoin de recalibrage</button>
+        <button class="btn secondary full" style="margin-top:8px" onclick="exportFullReport()">📤 Exporter rapport CSV complet</button>
+        <button class="btn secondary full" style="margin-top:8px" onclick="exportCertificatPDF()">📄 Certificat PDF complet</button>
+      </div>
+    </section>
+
+    <!-- ÉCRAN 6: HISTORIQUE -->
+    <section id="history" class="screen">
+      <div class="card" style="padding:10px 14px">
+        <input id="searchHist" placeholder="🔍 Rechercher un relevé..." oninput="renderHistory()" style="font-size:13px;padding:10px">
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="histBadges"></div>
+      <div id="histList" style="display:flex;flex-direction:column;gap:9px"></div>
+      <div id="histEmpty" style="text-align:center;padding:40px 20px;color:var(--muted);display:none">
+        <div style="font-size:36px;margin-bottom:12px">📋</div>
+        <div>Aucun relevé enregistré</div>
+        <div style="font-size:11px;margin-top:6px">Effectuez des mesures et appuyez sur "Enregistrer"</div>
+      </div>
+      <div class="btnrow" id="histActions" style="display:none">
+        <button class="btn secondary full" onclick="exportHistCSV()">📤 Exporter historique CSV</button>
+        <button class="btn danger" onclick="clearHistory()">🗑</button>
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <button class="active" onclick="screen('home',this)">
+      <span class="nav-icon">⛽</span>Jaugeage
+    </button>
+    <button onclick="screen('new',this)">
+      <span class="nav-icon">➕</span>Nouvelle
+    </button>
+    <button onclick="screen('measure',this)">
+      <span class="nav-icon">📏</span>Saisie
+    </button>
+    <button onclick="screen('bareme',this)">
+      <span class="nav-icon">📊</span>Barèmes
+    </button>
+    <button onclick="screen('quality',this)">
+      <span class="nav-icon">✅</span>Contrôle
+    </button>
+    <button onclick="screen('history',this)">
+      <span class="nav-icon">🕘</span>Historique
+    </button>
+  </nav>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+// ── DONNÉES OFFICIELLES (Certificat C26/0012839 — LT-SA-046-AT) ─────────────
+// Barème 0-30 cm officiel MINCOMMERCE + extrapolation 31-45 cm
+const OFFICIAL_BAREME=[
+  // COMP I — Avant (0→30 officiel, 31→45 extrapolé)
+  [10265,10261,10253,10245,10234,10223,10211,10199,10185,10170,10155,10138,10120,10099,10077,10055,10033,10011,9989,9967,9945,9921,9896,9870,9844,9818,9790,9762,9731,9700,9668,
+   9635,9600,9563,9524,9483,9440,9395,9348,9299,9248,9195,9140,9083,9024,8963],
+  // COMP II (0→30 officiel, 31→45 extrapolé)
+  [10280,10274,10263,10252,10240,10228,10213,10198,10183,10166,10149,10130,10111,10092,10071,10049,10027,10005,9983,9960,9937,9914,9890,9865,9840,9815,9790,9762,9734,9704,9674,
+   9642,9608,9572,9534,9494,9452,9408,9362,9314,9264,9212,9158,9102,9044,8984],
+  // COMP III (0→30 officiel, 31→45 extrapolé)
+  [10285,10283,10280,10276,10265,10254,10242,10228,10214,10200,10183,10166,10149,10130,10111,10090,10068,10046,10024,10002,9980,9958,9936,9913,9890,9865,9840,9815,9789,9761,9730,
+   9698,9664,9628,9590,9550,9508,9464,9418,9370,9320,9268,9214,9158,9100,9040],
+  // COMP IV — Arrière (0→30 officiel, 31→45 extrapolé)
+  [6175,6174,6172,6169,6165,6161,6157,6152,6147,6140,6133,6126,6115,6104,6093,6082,6070,6058,6046,6032,6018,6004,5990,5976,5960,5944,5928,5910,5892,5870,5845,
+   5818,5789,5758,5725,5690,5653,5614,5573,5530,5485,5438,5389,5338,5285,5230]
+];
+const DEFAULT_TANKS=[{
+  name:'ESSAI 1',plate:'LT-SA-046-AT',desc:'Barème officiel — Certificat C26/0012839/A22/MINCOMMERCE/DMQP',
+  maker:'SIGMA',year:'1997',product:'Hydrocarbures',nextCheck:'2027-04-30',
+  creuxUnit:'cm',volUnit:'L',
+  audits:['Chargement barème officiel MINCOMMERCE — '+new Date().toLocaleDateString('fr-FR')],
+  comps:['Avant','2','3','Arrière'].map((n,i)=>({
+    name:n,cap:i===3?6000:10000,
+    meta:{status:'officiel',version:'v1',source:'Certificat MINCOMMERCE',date:'2026-04-30',locked:true},
+    bareme:OFFICIAL_BAREME[i].map((v,cm)=>[cm,v])
+  }))
+}];
+
+// ── ÉTAT ─────────────────────────────────────────────────────────────────────
+let tanks=JSON.parse(localStorage.getItem('jp_tanks')||'null')||DEFAULT_TANKS;
+let hist=JSON.parse(localStorage.getItem('jp_hist')||'[]');
+let ti=0,ci=0,typed='';
+
+// ── PERSISTANCE ───────────────────────────────────────────────────────────────
+function persist(){
+  try{
+    localStorage.setItem('jp_tanks',JSON.stringify(tanks));
+    localStorage.setItem('jp_hist',JSON.stringify(hist));
+  }catch(e){toast('⚠ Stockage local plein — exportez vos données');}
+}
+function tank(){return tanks[ti];}
+function comp(){return tank().comps[ci];}
+
+// ── INTERPOLATION ─────────────────────────────────────────────────────────────
+function interp(c,x){
+  let b=[...c.bareme].sort((a,b)=>Number(a[0])-Number(b[0]));
+  if(!b||b.length<2)return null;
+  let xn=Number(x);
+  if(xn<=Number(b[0][0]))return Number(b[0][1]);
+  if(xn>=Number(b[b.length-1][0]))return Number(b[b.length-1][1]);
+  for(let i=0;i<b.length-1;i++){
+    let x1=Number(b[i][0]),y1=Number(b[i][1]),x2=Number(b[i+1][0]),y2=Number(b[i+1][1]);
+    if(xn>=x1&&xn<=x2)return Math.round(y1+(xn-x1)*(y2-y1)/(x2-x1));
+  }
+  return null;
+}
+
+// ── RENDER PRINCIPAL ──────────────────────────────────────────────────────────
+function render(){
+  // Chips citernes
+  document.getElementById('tankChips').innerHTML=tanks.map((t,i)=>
+    `<span class="chip ${i===ti?'active':''}" onclick="ti=${i};ci=0;typed='';render()">${t.plate||t.name}</span>`
+  ).join('');
+
+  // Grille compartiments
+  document.getElementById('compGrid').innerHTML=tank().comps.map((c,i)=>{
+    let has=c.creux!==undefined,v=has?interp(c,c.creux):null,p=v?Math.max(0,Math.min(100,Math.round(v/c.cap*100))):0;
+    return `<div class="comp ${has?'done':''}" onclick="openMeasure(${i})">
+      <div class="mini">COMP. ${i+1}</div>
+      <div class="comp-name">${c.name}</div>
+      <div><span class="big">${has?c.creux:'__'}</span> <span class="mini">${tank().creuxUnit}</span></div>
+      <div class="vol">${v!==null?v.toLocaleString():'—'} ${tank().volUnit}</div>
+      <div class="mini">/ ${c.cap.toLocaleString()} ${tank().volUnit} nom.</div>
+      <div class="bar"><span style="width:${p}%"></span></div>
+    </div>`;
+  }).join('');
+
+  // Totaux
+  let total=0,cap=0,allSet=true;
+  tank().comps.forEach(c=>{
+    cap+=c.cap;
+    if(c.creux!==undefined){let v=interp(c,c.creux);if(v)total+=v;}
+    else allSet=false;
+  });
+  document.getElementById('totalVol').textContent=allSet?total.toLocaleString():'—';
+  document.getElementById('totalCap').textContent=cap.toLocaleString()+' '+tank().volUnit;
+  document.getElementById('fillPct').textContent=allSet?(cap?Math.round(total/cap*100)+'%':'—'):'—';
+
+  // Flotte (onglet Nouvelle)
+  document.getElementById('fleetList').innerHTML=tanks.map((t,i)=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-weight:900;font-size:13px">${t.plate||t.name}</div><div style="font-size:11px;color:var(--muted)">${t.comps.length} comp. · ${t.volUnit}</div></div>
+      <span class="chip ${i===ti?'active':''}" onclick="ti=${i};ci=0;render()" style="font-size:11px">Activer</span>
+    </div>`
+  ).join('');
+
+  renderMeasure();
+  renderBareme();
+  renderHistory();
+  persist();
+}
+
+// ── SAISIE MESURE ─────────────────────────────────────────────────────────────
+function openMeasure(i){
+  ci=i;
+  typed=comp().creux?.toString()||'';
+  screen('measure',document.querySelectorAll('nav button')[2]);
+  renderMeasure();
+}
+function renderMeasure(){
+  document.getElementById('selectedTank').textContent='🚛 '+(tank().plate||tank().name);
+  document.getElementById('selectedComp').textContent='Compartiment '+(ci+1)+' — '+comp().name;
+  document.getElementById('selectedInfo').textContent='Capacité nominale : '+comp().cap.toLocaleString()+' '+tank().volUnit+(comp().meta?.date?' | Jaugeage: '+comp().meta.date:'');
+  document.getElementById('quickComps').innerHTML=tank().comps.map((c,i)=>
+    `<span class="chip ${i===ci?'active':''}" onclick="ci=${i};typed=comp().creux?.toString()||'';renderMeasure()">C${i+1} ${c.name}</span>`
+  ).join('');
+  document.getElementById('creuxDisplay').textContent=typed||'__';
+  document.getElementById('creuxDisplayUnit').textContent=' '+tank().creuxUnit;
+  let rb=document.getElementById('resultBox');
+  if(!typed){rb.style.display='none';return;}
+  let xv=parseFloat(typed),v=interp(comp(),xv);
+  rb.style.display='block';
+  document.getElementById('resultValue').textContent=v===null?'N/A':v.toLocaleString();
+  document.getElementById('resultDetail').textContent=v===null?'Barème insuffisant ou vide':(tank().volUnit+' — interpolation linéaire');
+  if(v!==null){
+    let pct=Math.max(0,Math.min(100,Math.round(v/comp().cap*100)));
+    let b=[...comp().bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+    let idx=b.findIndex(p=>Number(p[0])>=Math.round(xv));
+    let delta=idx>0?Math.abs(Number(b[idx-1][1])-Number(b[idx]?.[1]||0)):0;
+    document.getElementById('resultStats').innerHTML=`Δ ≈ ${Math.round(delta)} ${tank().volUnit}/cm | Remplissage : ${pct}% | Creux : ${typed} ${tank().creuxUnit}`;
+  } else {
+    document.getElementById('resultStats').innerHTML='Valeur hors plage du barème';
+  }
+}
+function num(x){if(x==='.'&&typed.includes('.'))return;if(typed.length>=6)return;typed+=x;renderMeasure();}
+function delNum(){typed=typed.slice(0,-1);renderMeasure();}
+function validateMeasure(){
+  if(!typed)return toast('⚠ Saisis une valeur de creux');
+  comp().creux=parseFloat(typed);
+  let v=interp(comp(),comp().creux);
+  logAudit('Mesure C'+(ci+1)+' : '+typed+' '+tank().creuxUnit+' → '+(v||'?')+' '+tank().volUnit);
+  toast('✓ Mesure C'+(ci+1)+' validée : '+(v?.toLocaleString()||'?')+' '+tank().volUnit);
+  render();
+  let nextUnmeasured=tank().comps.findIndex((c,i)=>i>ci&&c.creux===undefined);
+  if(nextUnmeasured!==-1){
+    ci=nextUnmeasured;typed='';renderMeasure();
+  } else {
+    screen('home',document.querySelectorAll('nav button')[0]);
+  }
+}
+function resetMeasures(){
+  tank().comps.forEach(c=>delete c.creux);
+  logAudit('Reset mesures — '+new Date().toLocaleTimeString('fr-FR'));
+  render();toast('♻ Mesures réinitialisées');
+}
+function saveReading(){
+  let all=tank().comps.every(c=>c.creux!==undefined);
+  if(!all)return toast('⚠ Mesure tous les compartiments avant d\'enregistrer');
+  let total=tank().comps.reduce((s,c)=>s+(interp(c,c.creux)||0),0);
+  hist.unshift({
+    date:new Date().toLocaleString('fr-FR'),
+    tank:tank().plate||tank().name,
+    total,
+    volUnit:tank().volUnit,
+    detail:tank().comps.map((c,i)=>'C'+(i+1)+':'+c.creux+tank().creuxUnit+'→'+(interp(c,c.creux)||'?')+tank().volUnit).join(' · ')
+  });
+  logAudit('Relevé enregistré — total '+total.toLocaleString()+' '+tank().volUnit);
+  render();
+  toast('✅ Relevé enregistré — '+total.toLocaleString()+' '+tank().volUnit);
+}
+
+// ── PDF : FONCTIONS UTILITAIRES ───────────────────────────────────────────────
+function pdfHeader(doc,titre,sousTitre){
+  const W=210,margin=14;
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(60,60,60);
+  doc.text('REPUBLIQUE DU CAMEROUN',margin,10);
+  doc.text('Paix – Travail – Patrie',margin,14);
+  doc.text('―――――――――――',margin,17);
+  doc.text('MINISTERE DU COMMERCE',margin,21);
+  doc.text('MINISTRY OF TRADE',margin,25);
+  doc.text('DIRECTION DE LA METROLOGIE DE LA QUALITE ET DES PRIX',margin,30);
+  doc.text('REPUBLIC OF CAMEROON',W-margin,10,{align:'right'});
+  doc.text('Peace – Work – Fatherland',W-margin,14,{align:'right'});
+  let certNum=tank().certNum||'0/26';
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(180,0,0);
+  doc.text(certNum,W-margin,21,{align:'right'});
+  doc.setDrawColor(0,0,0);doc.setLineWidth(0.5);
+  doc.line(margin,34,W-margin,34);
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
+  doc.text(titre,W/2,41,{align:'center'});
+  doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(180,0,0);
+  doc.text('CERTIFICAT DE JAUGEAGE N°'+(tank().certNum||'0012839')+'/A22/MINCOMMERCE/DMQP',W/2,48,{align:'center'});
+  if(sousTitre){doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);doc.text(sousTitre,W/2,55,{align:'center'});}
+  doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.line(margin,58,W-margin,58);
+  return 64;
+}
+function pdfFooter(doc,page,total){
+  const W=210,margin=14,Y=288;
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(120,120,120);
+  doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);
+  doc.line(margin,Y-3,W-margin,Y-3);
+  doc.text('JAUGE-PRO — Généré le '+new Date().toLocaleString('fr-FR'),margin,Y);
+  doc.text('Page '+page+' / '+total,W-margin,Y,{align:'right'});
+}
+function pdfTableauBareme(doc,Y,compIdx){
+  const margin=14,W=210;
+  const c=tank().comps[compIdx];
+  if(!c)return Y;
+  let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+  if(!b.length)return Y;
+  doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(0,100,80);
+  doc.text('Compartiment '+(compIdx+1)+' — '+c.name+' (Cap. nominale : '+c.cap.toLocaleString()+' '+tank().volUnit+')',margin,Y);
+  Y+=5;
+  const colW=[22,32,18];
+  const startCols=[margin,margin+72,margin+144];
+  const totalW=W-margin*2;
+  doc.setFillColor(0,140,110);doc.rect(margin,Y,totalW,6,'F');
+  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  startCols.forEach(sx=>{
+    doc.text('CREUX',sx+2,Y+4);
+    doc.text('VOLUME',sx+colW[0]+2,Y+4);
+    doc.text('Δ',sx+colW[0]+colW[1]+2,Y+4);
+  });
+  Y+=6;
+  let third=Math.ceil(b.length/3);
+  let groups=[b.slice(0,third),b.slice(third,third*2),b.slice(third*2)];
+  let maxRows=Math.max(...groups.map(g=>g.length));
+  for(let row=0;row<maxRows;row++){
+    if(Y>270){doc.addPage();Y=20;}
+    if(row%2===0){doc.setFillColor(245,250,248);doc.rect(margin,Y,totalW,5,'F');}
+    groups.forEach((g,gi)=>{
+      if(!g[row])return;
+      let p=g[row];
+      let prev=row>0&&g[row-1]?Number(g[row-1][1]):null;
+      let delta=prev!==null?Math.round(prev-Number(p[1])):null;
+      let sx=startCols[gi];
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,100,80);
+      doc.text(String(p[0]),sx+2,Y+3.5);
+      doc.setFont('helvetica','normal');doc.setTextColor(20,20,20);
+      doc.text(Number(p[1]).toLocaleString('fr-FR'),sx+colW[0]+2,Y+3.5);
+      doc.setTextColor(120,120,120);
+      doc.text(delta!==null?'-'+delta:'—',sx+colW[0]+colW[1]+2,Y+3.5);
+    });
+    doc.setDrawColor(210,210,210);doc.setLineWidth(0.2);
+    startCols.forEach((sx,gi)=>{
+      if(gi>0)doc.line(sx,Y,sx,Y+5);
+      doc.line(sx+colW[0],Y,sx+colW[0],Y+5);
+      doc.line(sx+colW[0]+colW[1],Y,sx+colW[0]+colW[1],Y+5);
+    });
+    Y+=5;
+  }
+  doc.setDrawColor(180,180,180);doc.setLineWidth(0.3);
+  doc.rect(margin,Y-maxRows*5,totalW,maxRows*5,'S');
+  return Y+6;
+}
+function pdfCourbe(doc,Y,compIdx){
+  const margin=14,W=210;
+  const c=tank().comps[compIdx];
+  if(!c||!c.bareme||!c.bareme.length)return Y;
+  let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0])).filter(p=>!isNaN(Number(p[0]))&&!isNaN(Number(p[1])));
+  if(b.length<2)return Y;
+  doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(0,100,80);
+  doc.text('Courbe de jaugeage — Compartiment '+(compIdx+1)+' — '+c.name,margin,Y);
+  Y+=4;
+  let tmpCanvas=document.createElement('canvas');
+  tmpCanvas.width=900;tmpCanvas.height=400;
+  let ctx=tmpCanvas.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,900,400);
+  let xs=b.map(p=>Number(p[0])),ys=b.map(p=>Number(p[1]));
+  let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  let pad={l:70,r:20,t:20,b:50},cW=900-pad.l-pad.r,cH=400-pad.t-pad.b;
+  let sx=x=>pad.l+(x-minX)/(maxX-minX||1)*cW;
+  let sy=y=>pad.t+cH-(y-minY)/(maxY-minY||1)*cH;
+  ctx.strokeStyle='#e0e0e0';ctx.lineWidth=1;
+  for(let i=0;i<=8;i++){
+    let gy=pad.t+i*cH/8;ctx.beginPath();ctx.moveTo(pad.l,gy);ctx.lineTo(pad.l+cW,gy);ctx.stroke();
+    ctx.fillStyle='#666';ctx.font='13px Arial';ctx.textAlign='right';
+    ctx.fillText(Math.round(maxY-(maxY-minY)*i/8).toLocaleString('fr-FR'),pad.l-5,gy+4);
+  }
+  let stepX=Math.max(1,Math.ceil((maxX-minX)/10));
+  for(let x=Math.ceil(minX);x<=maxX;x+=stepX){
+    let gx=sx(x);ctx.beginPath();ctx.moveTo(gx,pad.t);ctx.lineTo(gx,pad.t+cH);ctx.stroke();
+    ctx.fillStyle='#666';ctx.font='13px Arial';ctx.textAlign='center';
+    ctx.fillText(String(x),gx,pad.t+cH+18);
+  }
+  ctx.globalAlpha=0.12;ctx.fillStyle='#00C896';
+  ctx.beginPath();ctx.moveTo(sx(Number(b[0][0])),sy(Number(b[0][1])));
+  b.forEach(p=>ctx.lineTo(sx(Number(p[0])),sy(Number(p[1]))));
+  ctx.lineTo(sx(Number(b[b.length-1][0])),pad.t+cH);
+  ctx.lineTo(sx(Number(b[0][0])),pad.t+cH);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  ctx.strokeStyle='#00A878';ctx.lineWidth=3;ctx.lineJoin='round';
+  ctx.beginPath();
+  b.forEach((p,i)=>i?ctx.lineTo(sx(Number(p[0])),sy(Number(p[1]))):ctx.moveTo(sx(Number(p[0])),sy(Number(p[1]))));
+  ctx.stroke();
+  ctx.fillStyle='#0077CC';
+  b.forEach(p=>{ctx.beginPath();ctx.arc(sx(Number(p[0])),sy(Number(p[1])),5,0,7);ctx.fill();});
+  ctx.fillStyle='#333';ctx.font='bold 14px Arial';ctx.textAlign='center';
+  ctx.fillText('Creux ('+tank().creuxUnit+')',pad.l+cW/2,390);
+  ctx.save();ctx.translate(18,pad.t+cH/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText('Volume ('+tank().volUnit+')',0,0);ctx.restore();
+  ctx.fillStyle='#006050';ctx.font='bold 15px Arial';ctx.textAlign='center';
+  ctx.fillText('C'+(compIdx+1)+' — '+c.name+' — Cap. '+c.cap.toLocaleString()+' '+tank().volUnit,450,15);
+  ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.strokeRect(pad.l,pad.t,cW,cH);
+  let imgData=tmpCanvas.toDataURL('image/png');
+  let imgH=Math.round((W-margin*2)*400/900);
+  if(Y+imgH>280){doc.addPage();Y=20;}
+  doc.addImage(imgData,'PNG',margin,Y,W-margin*2,imgH);
+  return Y+imgH+6;
+}
+
+// ── CRÉATION CITERNE ──────────────────────────────────────────────────────────
+function buildNewCompFields(){
+  let nb=parseInt(document.getElementById('nbComp')?.value||'4');if(nb<1)nb=1;if(nb>12)nb=12;
+  let box=document.getElementById('newCompFields');if(!box)return;
+  let prev=[...box.querySelectorAll('.ncr')].map(r=>({name:r.querySelector('.newCompName')?.value,cap:r.querySelector('.newCompCap')?.value}));
+  box.innerHTML='';
+  for(let i=0;i<nb;i++){
+    let name=prev[i]?.name||'C'+(i+1);
+    let cap=prev[i]?.cap||(i===nb-1&&nb>1?6000:10000);
+    box.innerHTML+=`<div class="card ncr" style="background:var(--surface2);padding:12px;margin-bottom:8px">
+      <div class="mini" style="margin-bottom:8px">Compartiment ${i+1}</div>
+      <div class="grid">
+        <div><label>Nom</label><input class="newCompName" value="${name}" placeholder="ex: Avant"></div>
+        <div><label>Capacité nom.</label><input class="newCompCap" type="number" min="0" value="${cap}" placeholder="ex: 10000"></div>
+      </div>
+    </div>`;
+  }
+}
+function createTank(){
+  let n=document.getElementById('newName').value.trim()||('Citerne '+(tanks.length+1));
+  let p=document.getElementById('newPlate').value.trim();
+  let nb=parseInt(document.getElementById('nbComp').value||'4');
+  if(nb<1)nb=1;
+  let cu=document.getElementById('creuxUnit').value;
+  let vu=document.getElementById('volUnit').value;
+  let comps=[...document.querySelectorAll('.ncr')].map((r,i)=>{
+    let name=r.querySelector('.newCompName').value||'C'+(i+1);
+    let cap=parseFloat(r.querySelector('.newCompCap').value)||10000;
+    let sampleVol=cap;
+    return {
+      name,cap,
+      meta:{status:'provisoire',version:'v1',source:'Saisie application',date:new Date().toISOString().slice(0,10),locked:false},
+      bareme:[[0,sampleVol],[5,Math.round(sampleVol*.99)],[10,Math.round(sampleVol*.97)],[15,Math.round(sampleVol*.93)],[20,Math.round(sampleVol*.85)],[25,Math.round(sampleVol*.72)],[30,Math.round(sampleVol*.56)],[35,Math.round(sampleVol*.40)],[40,Math.round(sampleVol*.24)],[45,Math.round(sampleVol*.08)]]
+    };
+  });
+  tanks.push({
+    name:n,plate:p,desc:document.getElementById('newDesc').value,
+    maker:document.getElementById('newMaker')?.value||'',
+    year:document.getElementById('newYear')?.value||'',
+    product:document.getElementById('newProduct')?.value||'',
+    nextCheck:document.getElementById('newNextCheck')?.value||'',
+    creuxUnit:cu,volUnit:vu,comps,
+    audits:['Création — '+new Date().toLocaleString('fr-FR')]
+  });
+  ti=tanks.length-1;ci=0;
+  render();
+  screen('home',document.querySelectorAll('nav button')[0]);
+  toast('✅ Citerne "'+n+'" ajoutée à la flotte');
+}
+function deleteTank(){
+  if(tanks.length<=1)return toast('⚠ Impossible de supprimer la dernière citerne');
+  if(!confirm('Supprimer la citerne "'+( tank().plate||tank().name)+'" ?'))return;
+  tanks.splice(ti,1);ti=0;ci=0;render();toast('🗑 Citerne supprimée');
+}
+
+// ── BARÈMES ───────────────────────────────────────────────────────────────────
+function ensureMeta(){
+  if(!tank().audits)tank().audits=[];
+  if(!comp().meta)comp().meta={status:'officiel',version:'v1',source:'document officiel',date:'',locked:false};
+}
+function logAudit(msg){
+  ensureMeta();
+  tank().audits.unshift(new Date().toLocaleString('fr-FR')+' — '+msg);
+  if(tank().audits.length>50)tank().audits=tank().audits.slice(0,50);
+  persist();
+}
+function renderBareme(){
+  ensureMeta();
+  document.getElementById('barTankName').textContent=(tank().plate||tank().name)+' — '+tank().name;
+  document.getElementById('barTankInfo').textContent=tank().comps.length+' compartiment(s) · '+(tank().maker||'Constructeur non renseigné')+' · '+(tank().product||'Produit non renseigné');
+  document.getElementById('barStatus').value=comp().meta.status||'provisoire';
+  document.getElementById('barVersion').value=comp().meta.version||'v1';
+  document.getElementById('barSource').value=comp().meta.source||'';
+  document.getElementById('barDate').value=comp().meta.date||'';
+  document.getElementById('lockBtn').textContent=comp().meta.locked?'🔓 Déverrouiller (copie de travail)':'🔒 Verrouiller barème officiel';
+  document.getElementById('barMetaBadges').innerHTML=
+    `<span class="badge2 ${comp().meta.status==='officiel'?'ok':comp().meta.status==='provisoire'?'warn':'ok'}">${comp().meta.status}</span>`+
+    `<span class="badge2 ${comp().meta.locked?'danger':'warn'}">${comp().meta.locked?'🔒 verrouillé':'🔓 modifiable'}</span>`+
+    `<span class="badge2 ok">${comp().meta.version||'v1'}</span>`;
+  document.getElementById('barTabs').innerHTML=tank().comps.map((c,i)=>
+    `<span class="chip ${i===ci?'active':''}" onclick="ci=${i};renderBareme()">C${i+1} ${c.name}</span>`
+  ).join('');
+
+  comp().bareme=(comp().bareme||[]).sort((a,b)=>Number(a[0])-Number(b[0]));
+  let b=comp().bareme;
+  if(!b.length){
+    document.getElementById('barBody').innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:22px">Aucune ligne — cliquez sur "+ Ligne" ou importez un CSV.</td></tr>`;
+    drawChart();return;
+  }
+  document.getElementById('barBody').innerHTML=b.map((p,i)=>{
+    let prev=i>0?Number(b[i-1][1]):null;
+    let delta=prev!==null&&!isNaN(prev)&&!isNaN(Number(p[1]))?Math.round(prev-Number(p[1])):'—';
+    let locked=comp().meta?.locked;
+    if(locked){
+      return `<tr><td>${p[0]}</td><td>${Number(p[1]).toLocaleString()}</td><td style="color:var(--muted)">${typeof delta==='number'?'-'+delta:delta}</td><td>—</td></tr>`;
+    }
+    return `<tr>
+      <td><input value="${p[0]??''}" oninput="liveEditPoint(${i},0,this.value)" onblur="renderBareme()" style="padding:6px;font-size:12px;width:60px"></td>
+      <td><input value="${p[1]??''}" oninput="liveEditPoint(${i},1,this.value)" onblur="renderBareme()" style="padding:6px;font-size:12px;width:80px"></td>
+      <td style="color:var(--muted)">${typeof delta==='number'?'-'+delta:delta}</td>
+      <td><button class="btn danger" style="padding:4px 8px;font-size:10px" onclick="deletePoint(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+  drawChart();
+}
+function cleanNumber(v){
+  if(v===null||v===undefined)return NaN;
+  return parseFloat(String(v).replace(',','.').replace(/[^0-9.\-]/g,''));
+}
+function liveEditPoint(i,j,v){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé — créez une copie recalculée pour modifier');return;}
+  let n=cleanNumber(v);if(isNaN(n))return;
+  comp().bareme[i][j]=n;persist();drawChart();
+}
+function deletePoint(i){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé');return;}
+  comp().bareme.splice(i,1);persist();renderBareme();renderMeasure();
+  logAudit('Suppression ligne barème C'+(ci+1));toast('Ligne supprimée');
+}
+function addEmptyRow(){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé');return;}
+  let b=comp().bareme||[];
+  let last=b.length?b[b.length-1]:[0,comp().cap||0];
+  comp().bareme.push([Number(last[0])+1,'']);
+  renderBareme();
+  logAudit('Ajout ligne vide C'+(ci+1));toast('Ligne vide ajoutée');
+}
+function addNextCmRow(){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé');return;}
+  let b=(comp().bareme||[]).sort((a,bb)=>Number(a[0])-Number(bb[0]));
+  if(!b.length){comp().bareme.push([0,comp().cap||0]);}
+  else{
+    let last=b[b.length-1],prev=b.length>1?b[b.length-2]:null;
+    let step=prev?Number(prev[1])-Number(last[1]):Math.round((comp().cap||10000)*0.002);
+    if(isNaN(step)||step<0)step=20;
+    comp().bareme.push([Number(last[0])+1,Math.max(0,Math.round(Number(last[1])-step))]);
+  }
+  render();logAudit('Ajout ligne +1 cm C'+(ci+1));toast('+1 cm ajouté');
+}
+function generateLinearBareme(){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé');return;}
+  let maxC=prompt('Creux maximum (cm) ?','45');
+  let v0=prompt('Volume à 0 cm ?',String(comp().cap||10000));
+  let vEnd=prompt('Volume au creux maximum ?','0');
+  maxC=cleanNumber(maxC);v0=cleanNumber(v0);vEnd=cleanNumber(vEnd);
+  if(isNaN(maxC)||isNaN(v0)||isNaN(vEnd)||maxC<1)return toast('⚠ Valeurs invalides');
+  let pts=[];
+  for(let x=0;x<=maxC;x++){pts.push([x,Math.round(v0+(vEnd-v0)*(x/maxC))]);}
+  comp().bareme=pts;render();
+  logAudit('Barème généré automatiquement C'+(ci+1));toast('Barème linéaire généré ('+pts.length+' points)');
+}
+function clearBareme(){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé');return;}
+  if(!confirm('Vider le barème du compartiment '+(ci+1)+' ?'))return;
+  comp().bareme=[];persist();renderBareme();renderMeasure();
+  logAudit('Barème vidé C'+(ci+1));toast('Barème vidé');
+}
+function exportCSV(){
+  let csv='creux,volume\n'+(comp().bareme||[]).map(p=>p.join(',')).join('\n');
+  let a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='bareme_'+(tank().plate||tank().name).replace(/\s/g,'_')+'_C'+(ci+1)+'.csv';
+  a.click();toast('📤 CSV exporté');
+}
+function importCSVFile(event){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé');event.target.value='';return;}
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const lines=e.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    let pts=[];
+    for(let line of lines){
+      if(/creux|volume|cm|dm/i.test(line))continue;
+      let parts=line.split(/[;,\t]/).map(x=>x.trim());
+      if(parts.length<2)continue;
+      let x=cleanNumber(parts[0]),y=cleanNumber(parts[1]);
+      if(!isNaN(x)&&!isNaN(y))pts.push([x,y]);
+    }
+    if(pts.length<2){toast('⚠ CSV invalide — au moins 2 lignes creux,volume requises');event.target.value='';return;}
+    comp().bareme=pts.sort((a,b)=>a[0]-b[0]);
+    event.target.value='';render();
+    logAudit('Import CSV — '+pts.length+' lignes — C'+(ci+1));
+    toast('✅ '+pts.length+' lignes importées dans C'+(ci+1));
+  };
+  reader.readAsText(file);
+}
+function updateBarMeta(){
+  ensureMeta();
+  comp().meta.status=document.getElementById('barStatus').value;
+  comp().meta.version=document.getElementById('barVersion').value||'v1';
+  comp().meta.source=document.getElementById('barSource').value;
+  comp().meta.date=document.getElementById('barDate').value;
+  logAudit('Métadonnées barème mises à jour C'+(ci+1));
+  renderBareme();
+}
+function toggleBaremeLock(){
+  ensureMeta();
+  if(comp().meta.locked){
+    comp().meta.locked=false;
+    comp().meta.status='recalculé';
+    comp().meta.version=(comp().meta.version||'v1')+'-copie';
+    logAudit('Déverrouillage — copie de travail C'+(ci+1));
+    toast('🔓 Barème déverrouillé (copie recalculée)');
+  } else {
+    comp().meta.locked=true;
+    comp().meta.status='officiel';
+    logAudit('Verrouillage — barème officiel C'+(ci+1));
+    toast('🔒 Barème verrouillé comme officiel');
+  }
+  renderBareme();
+}
+function applyCorrections(){
+  let T=parseFloat(document.getElementById('tempInput').value);
+  let D=parseFloat(document.getElementById('densityInput').value);
+  let el=document.getElementById('corrResult');
+  if(isNaN(T)&&isNaN(D)){toast('⚠ Entrez température et/ou densité');return;}
+  let total=tank().comps.reduce((s,c)=>s+(c.creux!==undefined?interp(c,c.creux)||0:0),0);
+  let coeff=!isNaN(T)?1-(0.00065*(T-15)):1;
+  let masse=!isNaN(D)?Math.round(total*D):'—';
+  let volCorr=Math.round(total*coeff);
+  el.style.display='block';
+  el.innerHTML=`Volume brut mesuré : ${total.toLocaleString()} ${tank().volUnit}<br>`+
+    (!isNaN(T)?`Correction température (${T}°C) : ${volCorr.toLocaleString()} ${tank().volUnit}<br>`:'') +
+    (!isNaN(D)?`Masse calculée (ρ=${D}) : ${masse.toLocaleString()} kg`:'');
+  toast('Correction appliquée');
+}
+
+// ── COURBE ────────────────────────────────────────────────────────────────────
+function drawChart(){
+  let cv=document.getElementById('chart');if(!cv)return;
+  cv.width=cv.offsetWidth*window.devicePixelRatio||760;
+  cv.height=220*window.devicePixelRatio||440;
+  let ctx=cv.getContext('2d');
+  ctx.scale(window.devicePixelRatio||1,window.devicePixelRatio||1);
+  let W=cv.offsetWidth||380,H=220;
+  ctx.clearRect(0,0,W,H);
+  let b=[...comp().bareme].sort((a,bb)=>Number(a[0])-Number(bb[0])).filter(p=>!isNaN(Number(p[0]))&&!isNaN(Number(p[1])));
+  if(b.length<2){
+    ctx.fillStyle='#7E91B4';ctx.font='13px Courier New';ctx.textAlign='center';
+    ctx.fillText('Barème vide — ajoutez des points',W/2,H/2);return;
+  }
+  let xs=b.map(p=>Number(p[0])),ys=b.map(p=>Number(p[1]));
+  let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  let pad={l:50,r:15,t:15,b:35};
+  let w=W-pad.l-pad.r,h=H-pad.t-pad.b;
+  let sx=x=>pad.l+(x-minX)/(maxX-minX||1)*w;
+  let sy=y=>pad.t+h-(y-minY)/(maxY-minY||1)*h;
+  // Grille
+  ctx.strokeStyle='#2A3A5C';ctx.lineWidth=0.5;
+  for(let i=0;i<=5;i++){
+    let gy=pad.t+i*h/5;
+    ctx.beginPath();ctx.moveTo(pad.l,gy);ctx.lineTo(pad.l+w,gy);ctx.stroke();
+    let val=Math.round(maxY-(maxY-minY)*i/5);
+    ctx.fillStyle='#7E91B4';ctx.font='10px Courier New';ctx.textAlign='right';
+    ctx.fillText(val.toLocaleString(),pad.l-4,gy+3);
+  }
+  for(let i=0;i<=5;i++){
+    let gx=pad.l+i*w/5;
+    ctx.beginPath();ctx.moveTo(gx,pad.t);ctx.lineTo(gx,pad.t+h);ctx.stroke();
+    let val=Math.round(minX+(maxX-minX)*i/5);
+    ctx.fillStyle='#7E91B4';ctx.font='10px Courier New';ctx.textAlign='center';
+    ctx.fillText(val,gx,H-5);
+  }
+  // Courbe
+  ctx.strokeStyle='#00C896';ctx.lineWidth=2;ctx.beginPath();
+  b.forEach((p,i)=>i?ctx.lineTo(sx(Number(p[0])),sy(Number(p[1]))):ctx.moveTo(sx(Number(p[0])),sy(Number(p[1]))));
+  ctx.stroke();
+  // Zone remplie
+  ctx.globalAlpha=0.12;ctx.fillStyle='#00C896';ctx.beginPath();
+  ctx.moveTo(sx(Number(b[0][0])),sy(Number(b[0][1])));
+  b.forEach(p=>ctx.lineTo(sx(Number(p[0])),sy(Number(p[1]))));
+  ctx.lineTo(sx(Number(b[b.length-1][0])),pad.t+h);
+  ctx.lineTo(sx(Number(b[0][0])),pad.t+h);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  // Points
+  ctx.fillStyle='#0099FF';
+  b.forEach(p=>{ctx.beginPath();ctx.arc(sx(Number(p[0])),sy(Number(p[1])),3.5,0,7);ctx.fill();});
+  // Axe labels
+  ctx.fillStyle='#7E91B4';ctx.font='10px Courier New';ctx.textAlign='center';
+  ctx.fillText('Creux ('+tank().creuxUnit+')',pad.l+w/2,H-1);
+}
+
+// ── CONTRÔLE QUALITÉ ──────────────────────────────────────────────────────────
+function qualityChecks(){
+  let b=[...((comp().bareme)||[])].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+  let issues=[],warns=[];
+  if(b.length<2)issues.push('Barème insuffisant : au moins 2 lignes nécessaires.');
+  let seen=new Set();
+  for(let i=0;i<b.length;i++){
+    let x=Number(b[i][0]),y=Number(b[i][1]);
+    if(seen.has(x))issues.push('Doublon de creux détecté : '+x);
+    seen.add(x);
+    if(isNaN(x)||isNaN(y))issues.push('Valeur non numérique ligne '+(i+1));
+    if(y<0)issues.push('Volume négatif à la ligne '+(i+1));
+    if(y>comp().cap)warns.push('Volume ('+y+') supérieur à la capacité nominale au creux '+x);
+    if(i>0){
+      let px=Number(b[i-1][0]),py=Number(b[i-1][1]);
+      if(x<=px)issues.push('Creux non croissant à la ligne '+(i+1));
+      if(y>py)issues.push('Volume augmente quand le creux augmente — incohérent à '+x);
+      if(x-px>1)warns.push('Ligne manquante possible entre '+px+' et '+x+' '+tank().creuxUnit);
+      let delta=py-y;
+      if(delta<0)issues.push('Delta négatif à creux='+x);
+      if(delta>comp().cap*0.15)warns.push('Delta très élevé à '+x+' : '+delta+' '+tank().volUnit);
+    }
+  }
+  if(comp().meta?.locked)warns.push('Barème officiel verrouillé — modifications directes bloquées.');
+  return{issues,warns,ok:issues.length===0};
+}
+function renderQuality(){
+  ensureMeta();
+  let q=qualityChecks();
+  document.getElementById('qualityTank').textContent=(tank().plate||tank().name)+' — '+tank().name;
+  document.getElementById('qualityComp').textContent='Compartiment C'+(ci+1)+' — '+comp().name;
+  document.getElementById('qualityBadges').innerHTML=
+    `<span class="badge2 ${q.ok?'ok':'danger'}">${q.ok?'✓ valide':'✗ à corriger'}</span>`+
+    `<span class="badge2 warn">${q.warns.length} avertissement(s)</span>`+
+    `<span class="badge2 danger">${q.issues.length} erreur(s)</span>`;
+  document.getElementById('qualityCompTabs').innerHTML=tank().comps.map((c,i)=>
+    `<span class="chip ${i===ci?'active':''}" onclick="ci=${i};renderQuality()">C${i+1} ${c.name}</span>`
+  ).join('');
+  let rows=[];
+  q.issues.forEach(x=>rows.push(`<div class="kpi"><div class="kpi-title">❌ Erreur</div><div class="kpi-value" style="color:var(--danger)">${x}</div></div>`));
+  q.warns.forEach(x=>rows.push(`<div class="kpi"><div class="kpi-title">⚠ Avertissement</div><div class="kpi-value" style="color:var(--warn)">${x}</div></div>`));
+  if(!rows.length)rows.push(`<div class="kpi"><div class="kpi-title">✓ Résultat</div><div class="kpi-value" style="color:var(--accent)">Barème cohérent — aucune anomalie détectée.</div></div>`);
+  document.getElementById('qualityList').innerHTML=rows.join('');
+  document.getElementById('auditList').innerHTML=(tank().audits||[]).slice(0,10).map(a=>'• '+a).join('<br>')||'<span style="color:var(--muted)">Aucun audit enregistré.</span>';
+}
+function generateReport(){
+  let q=qualityChecks();
+  let total=tank().comps.reduce((s,c)=>s+(c.creux!==undefined?interp(c,c.creux)||0:0),0);
+  logAudit('Rapport généré — '+tank().plate+' — total '+total.toLocaleString()+' '+tank().volUnit+' — statut '+(q.ok?'OK':'À CORRIGER'));
+  renderQuality();
+  toast('📋 Rapport : '+(tank().plate||tank().name)+' | '+total.toLocaleString()+' '+tank().volUnit+' | '+(q.ok?'✓ OK':'⚠ À corriger'));
+}
+function checkRecalibration(){
+  let d=tank().nextCheck;
+  if(!d)return toast('⚠ Aucune date de prochaine vérification renseignée');
+  let due=new Date(d)<new Date();
+  logAudit('Contrôle recalibrage — '+(due?'DÉPASSÉ':'OK'));
+  renderQuality();
+  toast(due?'⚠ Recalibrage recommandé — date dépassée !':'✓ Recalibrage non urgent');
+}
+function exportFullReport(){
+  let lines=['Date,Citerne,Compartiment,Creux,Volume,Capacité,Remplissage%'];
+  tank().comps.forEach((c,i)=>{
+    let v=c.creux!==undefined?interp(c,c.creux):null;
+    let pct=v!==null?Math.round(v/c.cap*100):'';
+    lines.push([new Date().toLocaleDateString('fr-FR'),tank().plate||tank().name,'C'+(i+1)+' '+c.name,c.creux!==undefined?c.creux:'',v!==null?v:'',c.cap,pct].join(','));
+  });
+  let blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  let a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='rapport_'+(tank().plate||tank().name).replace(/\s/g,'_')+'_'+Date.now()+'.csv';
+  a.click();toast('📤 Rapport CSV exporté');
+}
+
+// ── EXPORT PDF ────────────────────────────────────────────────────────────────
+function getPDF(){
+  if(typeof window.jspdf==='undefined'){toast('⚠ jsPDF non chargé — connectez-vous à internet et rechargez');return null;}
+  return new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+}
+
+function exportCertificatPDF(){
+  const doc=getPDF(); if(!doc)return;
+  toast('⏳ Génération certificat PDF...');
+  setTimeout(()=>{
+    try{
+      const W=210,m=14;
+      const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      const cn=tank().certNum||'0012839';
+      const totalPg=2+tank().comps.length;
+
+      // ── PAGE 1 : CERTIFICAT ──────────────────────────────────────────────
+      // En-tête bilingue
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+      doc.text('REPUBLIQUE DU CAMEROUN',m,10);
+      doc.text('Paix \u2013 Travail \u2013 Patrie',m,14);
+      doc.text('MINISTERE DU COMMERCE / MINISTRY OF TRADE',m,18);
+      doc.text('DIRECTION DE LA METROLOGIE, DE LA QUALITE ET DES PRIX',m,22);
+      doc.text('DEPARTMENT OF METROLOGY QUALITY AND PRICES',m,26);
+      doc.text('REPUBLIC OF CAMEROON',W-m,10,{align:'right'});
+      doc.text('Peace \u2013 Work \u2013 Fatherland',W-m,14,{align:'right'});
+      doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(160,0,0);
+      doc.text(tank().certNum||'0/26',W-m,22,{align:'right'});
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.6);doc.line(m,30,W-m,30);
+
+      doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(0,0,0);
+      doc.text('CERTIFICAT DE JAUGEAGE N\u00b0'+cn+'/A22/MINCOMMERCE/DMQP',W/2,38,{align:'center'});
+      doc.setFontSize(9);doc.setFont('helvetica','bold');
+      doc.text('CITERNE RECIPIENT-MESURE POUR HYDROCARBURES',W/2,45,{align:'center'});
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.line(m,49,W-m,49);
+
+      let Y=54;
+      // Deux colonnes
+      const cw=(W-m*2)/2-2;
+      // Colonne gauche : identification
+      doc.setDrawColor(160,160,160);doc.setLineWidth(0.3);doc.rect(m,Y,cw,88,'S');
+      const champG=[
+        ['Type :',tank().name||'Transport Routier'],
+        ['Capacit\u00e9 nominale :',tank().comps.reduce((s,c)=>s+c.cap,0).toLocaleString()+' '+tank().volUnit],
+        ['Constructeur :',tank().maker||'\u2014'],
+        ['N\u00b0 de s\u00e9rie :',tank().serie||'\u2014'],
+        ['Ann\u00e9e de fabrication :',tank().year||'\u2014'],
+        ['Exploitant :',tank().exploitant||tank().desc||'\u2014'],
+        ['Type de v\u00e9hicule :',tank().typeVeh||'Semi-Remorque'],
+        ['N\u00b0 immatriculation :',tank().plate||'\u2014'],
+        ['N\u00b0 de ch\u00e2ssis :',tank().chassis||'\u2014'],
+        ['Poste de jaugeage :',tank().poste||'DOUALA'],
+        ['N\u00b0 attestation :',tank().attestation||'\u2014'],
+      ];
+      let yg=Y+5;
+      champG.forEach(([l,v])=>{
+        doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(80,80,80);doc.text(l,m+2,yg);
+        doc.setFont('helvetica','bold');doc.setTextColor(10,10,10);doc.text(String(v),m+38,yg,{maxWidth:cw-40});
+        yg+=7.5;
+      });
+
+      // Colonne droite : clauses ministre
+      const rx=m+cw+4;
+      doc.setDrawColor(160,160,160);doc.setLineWidth(0.3);doc.rect(rx,Y,cw,88,'S');
+      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(0,0,0);
+      doc.text('LE MINISTRE DU COMMERCE CERTIFIE :',rx+2,Y+6);
+      const clauses=[
+        '1) Que la citerne r\u00e9cipient-mesure pour hydrocarbure et pour livraison par '+(tank().plate||'\u2014')+' a pass\u00e9 l\'\u00e9preuve de jaugeage et a \u00e9t\u00e9 identifi\u00e9e suivant les sp\u00e9cifications ci-contre.',
+        '2) Que dans chacun des '+tank().comps.length+' Compartiments : La capacit\u00e9 nominale Vn d\u00e9termine la quantit\u00e9 du produit autoris\u00e9e. La distance de creux C correspondante, la Capacit\u00e9 totale Vt, la hauteur totale Ht et les volumes centim\u00e9triques moyens V sont fix\u00e9s au tableau ci-dessous.',
+        '3) Que la limite de validit\u00e9 du pr\u00e9sent certificat est fix\u00e9e au '+(tank().nextCheck?new Date(tank().nextCheck).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):'\u2014')+'.',
+        '4) Que la redevance m\u00e9trologique d\'un montant de FCFA '+(tank().redevance||'150 000')+' a \u00e9t\u00e9 acquitt\u00e9e suivant quittance n\u00b0 '+(tank().quittance||'\u2014')+' d\u00e9livr\u00e9e \u00e0 '+(tank().ville||'Douala')+'.',
+      ];
+      let yc=Y+13;
+      clauses.forEach(cl=>{
+        doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(30,30,30);
+        let lines=doc.splitTextToSize(cl,cw-4);doc.text(lines,rx+2,yc);yc+=lines.length*3.6+3;
+      });
+      Y+=92;
+
+      // Tableau récap compartiments
+      doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(0,100,80);
+      doc.text('TABLEAU R\u00c9CAPITULATIF \u2014 COMPARTIMENTS',m,Y);Y+=4;
+      const cws=[30,25,25,32,24,28];
+      const ths=['COMPARTIMENT','CAP. NOM. Vn\n('+tank().volUnit+')','DIST. CREUX\nC ('+tank().creuxUnit+')','VOL.CENT.MOY.\nV ('+tank().volUnit+'/cm)','HT TOT.\nH (mm)','CAP. TOT.\nVt ('+tank().volUnit+')'];
+      doc.setFillColor(20,20,20);doc.rect(m,Y,W-m*2,9,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(6);doc.setTextColor(255,255,255);
+      let cx=m;
+      ths.forEach((h,i)=>{h.split('\n').forEach((l,li)=>doc.text(l,cx+cws[i]/2,Y+3+li*3,{align:'center'}));cx+=cws[i];});
+      Y+=9;
+      tank().comps.forEach((c,i)=>{
+        let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+        let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v));
+        let vmoy=vols.length?Math.round(vols.reduce((s,v)=>s+v,0)/vols.length):c.cap;
+        let dc=b.length?b[b.length-1][0]:'\u2014';
+        let ht=c.creux_max||1870;
+        let vt=b.length?Number(b[0][1]):c.cap;
+        if(i%2===0){doc.setFillColor(242,252,248);doc.rect(m,Y,W-m*2,8,'F');}
+        cx=m;
+        const vals=[(i+1)+'\u00b0 '+c.name,c.cap.toLocaleString('fr-FR'),String(dc),vmoy.toLocaleString('fr-FR'),String(ht),vt.toLocaleString('fr-FR')];
+        vals.forEach((v,j)=>{
+          doc.setFont(j===0?'helvetica':'helvetica',j===0?'bold':'normal');
+          doc.setFontSize(7);doc.setTextColor(j===0?0:20,j===0?100:20,j===0?80:20);
+          doc.text(v,cx+cws[j]/2,Y+5,{align:'center',maxWidth:cws[j]-2});cx+=cws[j];
+        });
+        doc.setDrawColor(200,200,200);doc.setLineWidth(0.15);doc.line(m,Y+8,W-m,Y+8);Y+=8;
+      });
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);doc.rect(m,Y-tank().comps.length*8,W-m*2,tank().comps.length*8,'S');
+      Y+=8;
+
+      // Signature
+      if(Y>255){doc.addPage();Y=20;}
+      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+      doc.text('A '+(tank().ville||'Douala')+', Le '+today,m,Y);
+      doc.text('Pour le Ministre du Commerce et par D\u00e9l\u00e9gation',W-m,Y,{align:'right'});
+      Y+=16;doc.setDrawColor(120,120,120);doc.setLineWidth(0.3);
+      doc.line(W-m-55,Y,W-m,Y);
+      doc.setFontSize(7);doc.setTextColor(100,100,100);
+      doc.text('Signature & Cachet',W-m-28,Y+4,{align:'center'});
+      pdfFooter(doc,1,totalPg);
+
+      // ── PAGE 2 : ANNEXE BARÈME UNIFIÉ (tous compartiments côte à côte) ───
+      doc.addPage();
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(50,50,50);
+      doc.text('ANNEXE AU CERTIFICAT DE JAUGEAGE N\u00b0C26/'+cn+'/A22/MINCOMMERCE/DMQP',m,10);
+      doc.text('Bar\u00e8me donnant le volume en '+tank().volUnit+' du liquide contenu dans la citerne en fonction de la hauteur en CM de la surface libre de',m,14);
+      doc.text('ce liquide au plan de r\u00e9f\u00e9rence P constitu\u00e9 par le bord sup\u00e9rieur du trou d\'homme',m,18);
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.line(m,20,W-m,20);
+      let Ya=24;
+      const nb=tank().comps.length;
+      const avW=W-m*2;
+      const pairW=Math.floor(avW/nb);
+      const cmW=Math.floor(pairW*0.38),dm3W=pairW-cmW;
+      // En-têtes
+      doc.setFillColor(20,20,20);doc.rect(m,Ya,avW,6,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(255,255,255);
+      tank().comps.forEach((c,i)=>doc.text('COMP N\u00b0'+(i+1),m+i*pairW+pairW/2,Ya+4,{align:'center'}));
+      Ya+=6;
+      doc.setFillColor(60,60,60);doc.rect(m,Ya,avW,5,'F');
+      doc.setFontSize(6);
+      tank().comps.forEach((c,i)=>{
+        let x=m+i*pairW;
+        doc.text('CM',x+cmW/2,Ya+3.5,{align:'center'});
+        doc.text(tank().volUnit.toUpperCase(),x+cmW+dm3W/2,Ya+3.5,{align:'center'});
+        if(i<nb-1){doc.setDrawColor(140,140,140);doc.setLineWidth(0.2);doc.line(x+pairW,Ya,x+pairW,Ya+5);}
+        doc.setDrawColor(140,140,140);doc.line(x+cmW,Ya,x+cmW,Ya+5);
+      });
+      Ya+=5;
+      const baremes=tank().comps.map(c=>[...c.bareme].sort((a,b)=>Number(a[0])-Number(b[0])));
+      const maxR=Math.max(...baremes.map(b=>b.length));
+      for(let row=0;row<maxR;row++){
+        if(Ya>278){
+          doc.addPage();Ya=20;
+          doc.setFillColor(20,20,20);doc.rect(m,Ya,avW,5,'F');
+          doc.setFont('helvetica','bold');doc.setFontSize(6);doc.setTextColor(255,255,255);
+          tank().comps.forEach((c,i)=>{let x=m+i*pairW;doc.text('C'+(i+1)+' CM',x+cmW/2,Ya+3.5,{align:'center'});doc.text(tank().volUnit,x+cmW+dm3W/2,Ya+3.5,{align:'center'});});
+          Ya+=5;
+        }
+        if(row%2===0){doc.setFillColor(246,250,248);doc.rect(m,Ya,avW,4.5,'F');}
+        tank().comps.forEach((c,i)=>{
+          let x=m+i*pairW;
+          let b=baremes[i];
+          if(b[row]){
+            let p=b[row];
+            doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(0,100,80);
+            doc.text(String(p[0]),x+cmW/2,Ya+3.2,{align:'center'});
+            doc.setFont('helvetica','normal');doc.setTextColor(20,20,20);
+            doc.text(Number(p[1]).toLocaleString('fr-FR'),x+cmW+dm3W/2,Ya+3.2,{align:'center'});
+          }
+          if(i<nb-1){doc.setDrawColor(210,210,210);doc.setLineWidth(0.1);doc.line(x+pairW,Ya,x+pairW,Ya+4.5);}
+          doc.setDrawColor(210,210,210);doc.line(x+cmW,Ya,x+cmW,Ya+4.5);
+        });
+        doc.setDrawColor(230,230,230);doc.setLineWidth(0.08);doc.line(m,Ya+4.5,W-m,Ya+4.5);
+        Ya+=4.5;
+      }
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.4);doc.rect(m,24,avW,Ya-24,'S');
+      Ya+=8;
+      if(Ya>268){doc.addPage();Ya=20;}
+      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+      doc.text('A '+(tank().ville||'Douala')+', Le '+today,m,Ya);
+      doc.text('Pour le Ministre du Commerce et par D\u00e9l\u00e9gation',W-m,Ya,{align:'right'});
+      Ya+=14;doc.setDrawColor(120,120,120);doc.setLineWidth(0.3);doc.line(W-m-55,Ya,W-m,Ya);
+      pdfFooter(doc,2,totalPg);
+
+      // ── PAGES COURBES ────────────────────────────────────────────────────
+      tank().comps.forEach((c,i)=>{
+        doc.addPage();
+        doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(50,50,50);
+        doc.text('ANNEXE AU CERTIFICAT N\u00b0'+cn+'/A22/MINCOMMERCE/DMQP \u2014 Courbe C'+(i+1)+' \u2014 '+(tank().plate||tank().name),m,10);
+        doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.line(m,13,W-m,13);
+        let Yp=pdfCourbe(doc,17,i);
+        if(Yp<260){
+          doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+          doc.text('A '+(tank().ville||'Douala')+', Le '+today,m,Yp+8);
+          doc.text('Pour le Ministre du Commerce et par D\u00e9l\u00e9gation',W-m,Yp+8,{align:'right'});
+          Yp+=18;doc.setDrawColor(120,120,120);doc.setLineWidth(0.3);doc.line(W-m-55,Yp,W-m,Yp);
+        }
+        pdfFooter(doc,3+i,totalPg);
+      });
+
+      doc.save('certificat_jaugeage_'+(tank().plate||tank().name).replace(/\W/g,'_')+'_'+Date.now()+'.pdf');
+      toast('\u2705 Certificat PDF g\u00e9n\u00e9r\u00e9 ('+totalPg+' pages)');
+      logAudit('Export PDF \u2014 '+(tank().plate||tank().name)+' \u2014 '+today);
+    }catch(e){toast('\u274c Erreur PDF : '+e.message);console.error(e);}
+  },80);
+}
+
+function exportCourbePDF(){
+  const doc=getPDF();if(!doc)return;
+  toast('\u23f3 G\u00e9n\u00e9ration courbe PDF...');
+  setTimeout(()=>{
+    try{
+      const W=210,m=14;
+      const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(50,50,50);
+      doc.text('CERTIFICAT N\u00b0'+(tank().certNum||'0012839')+'/A22/MINCOMMERCE/DMQP \u2014 Courbe C'+(ci+1)+' \u2014 '+(tank().plate||tank().name),m,10);
+      doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.line(m,13,W-m,13);
+      let Y=pdfCourbe(doc,17,ci);
+      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(40,40,40);
+      doc.text('A '+(tank().ville||'Douala')+', Le '+today,m,Y+8);
+      doc.text('Pour le Ministre du Commerce et par D\u00e9l\u00e9gation',W-m,Y+8,{align:'right'});
+      pdfFooter(doc,1,1);
+      doc.save('courbe_C'+(ci+1)+'_'+(tank().plate||tank().name).replace(/\W/g,'_')+'_'+Date.now()+'.pdf');
+      toast('\u2705 Courbe PDF export\u00e9e');
+    }catch(e){toast('\u274c Erreur PDF : '+e.message);console.error(e);}
+  },50);
+}
+
+function exportBaremeCompletPDF(){
+  const doc=getPDF();if(!doc)return;
+  toast('\u23f3 Bar\u00e8me complet PDF...');
+  setTimeout(()=>{
+    try{
+      const W=210,m=14;
+      const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      tank().comps.forEach((c,i)=>{
+        if(i>0)doc.addPage();
+        doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(50,50,50);
+        doc.text('ANNEXE N\u00b0'+(tank().certNum||'0012839')+'/A22/MINCOMMERCE/DMQP \u2014 Bar\u00e8me C'+(i+1)+' \u2014 '+c.name+' \u2014 '+(tank().plate||tank().name),m,10);
+        doc.text('Statut: '+(c.meta?.status||'\u2014')+' | Version: '+(c.meta?.version||'v1')+' | Cap. nom.: '+c.cap.toLocaleString()+' '+tank().volUnit,m,14);
+        doc.setDrawColor(0,0,0);doc.setLineWidth(0.3);doc.line(m,17,W-m,17);
+        let Y=pdfTableauBareme(doc,21,i);
+        Y=pdfCourbe(doc,Y+4,i);
+        pdfFooter(doc,i+1,tank().comps.length);
+      });
+      doc.save('bareme_complet_'+(tank().plate||tank().name).replace(/\W/g,'_')+'_'+Date.now()+'.pdf');
+      toast('\u2705 Bar\u00e8me complet PDF export\u00e9 ('+tank().comps.length+' pages)');
+    }catch(e){toast('\u274c Erreur PDF : '+e.message);console.error(e);}
+  },60);
+}
+
+// ── EXPORT WORD ───────────────────────────────────────────────────────────────
+function exportCertificatWord(){
+  toast('\u23f3 G\u00e9n\u00e9ration certificat Word...');
+  setTimeout(()=>{
+    try{
+      const t=tank();
+      const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      const cn=t.certNum||'0012839';
+      const baremes=t.comps.map(c=>[...c.bareme].sort((a,b)=>Number(a[0])-Number(b[0])));
+      const maxR=Math.max(...baremes.map(b=>b.length));
+      let barRows='';
+      for(let r=0;r<maxR;r++){
+        barRows+='<tr>';
+        t.comps.forEach((c,i)=>{
+          let b=baremes[i];
+          if(b[r]){
+            barRows+=`<td style="text-align:center;color:#006050;font-weight:bold;border:1px solid #ccc;padding:2px 5px">${b[r][0]}</td>`;
+            barRows+=`<td style="text-align:right;border:1px solid #ccc;padding:2px 5px">${Number(b[r][1]).toLocaleString('fr-FR')}</td>`;
+          }else{
+            barRows+='<td style="border:1px solid #ccc"></td><td style="border:1px solid #ccc"></td>';
+          }
+        });
+        barRows+='</tr>';
+      }
+      let compHd=t.comps.map((_,i)=>`<th colspan="2" style="background:#111;color:#fff;border:1px solid #555;padding:4px;text-align:center;font-size:9pt">COMP N\u00b0${i+1}</th>`).join('');
+      let subHd=t.comps.map(()=>`<th style="background:#333;color:#fff;border:1px solid #555;padding:3px;text-align:center;font-size:8pt">CM</th><th style="background:#333;color:#fff;border:1px solid #555;padding:3px;text-align:center;font-size:8pt">${t.volUnit.toUpperCase()}</th>`).join('');
+      let recapR=t.comps.map((c,i)=>{
+        let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+        let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v));
+        let vm=vols.length?Math.round(vols.reduce((s,v)=>s+v,0)/vols.length):c.cap;
+        let dc=b.length?b[b.length-1][0]:'\u2014';
+        let ht=c.creux_max||1870;
+        let vt=b.length?Number(b[0][1]):c.cap;
+        let bg=i%2===0?'#f0fcf8':'#fff';
+        return `<tr style="background:${bg}">
+          <td style="font-weight:bold;color:#006050;border:1px solid #ccc;padding:4px">${i+1}\u00b0 ${c.name}</td>
+          <td style="border:1px solid #ccc;padding:4px;text-align:center">${c.cap.toLocaleString('fr-FR')}</td>
+          <td style="border:1px solid #ccc;padding:4px;text-align:center">${dc}</td>
+          <td style="border:1px solid #ccc;padding:4px;text-align:center">${vm.toLocaleString('fr-FR')}</td>
+          <td style="border:1px solid #ccc;padding:4px;text-align:center">${ht}</td>
+          <td style="border:1px solid #ccc;padding:4px;text-align:center">${vt.toLocaleString('fr-FR')}</td>
+        </tr>`;
+      }).join('');
+
+      const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<style>
+body{font-family:Arial,sans-serif;font-size:9pt;margin:1.5cm}
+h1{font-size:13pt;text-align:center;color:#000;margin:4pt 0}
+h2{font-size:10pt;text-align:center;color:#aa0000;margin:2pt 0}
+h3{font-size:9pt;color:#006050;margin-top:12pt;margin-bottom:4pt}
+table{border-collapse:collapse;width:100%;font-size:8pt}
+.sep{border:none;border-top:1pt solid #000;margin:6pt 0}
+.inst{font-size:7.5pt;color:#333;line-height:1.4}
+</style></head>
+<body>
+<table style="border:none;width:100%"><tr>
+  <td class="inst">REPUBLIQUE DU CAMEROUN<br>Paix \u2013 Travail \u2013 Patrie<br><b>MINISTERE DU COMMERCE</b><br>DIRECTION DE LA METROLOGIE, DE LA QUALITE ET DES PRIX</td>
+  <td style="text-align:right" class="inst">REPUBLIC OF CAMEROON<br>Peace \u2013 Work \u2013 Fatherland<br><br><b style="color:#aa0000">${t.certNum||'0/26'}</b></td>
+</tr></table>
+<hr class="sep">
+<h1>CERTIFICAT DE JAUGEAGE N\u00b0${cn}/A22/MINCOMMERCE/DMQP</h1>
+<h2>CITERNE RECIPIENT-MESURE POUR HYDROCARBURES</h2>
+<hr class="sep">
+<table style="border:none"><tr>
+<td style="width:50%;vertical-align:top;border:1pt solid #aaa;padding:6pt">
+<b style="font-size:8pt">IDENTIFICATION DE LA CITERNE</b><br><br>
+<table style="border:none;font-size:8pt">
+<tr><td class="inst">Type :</td><td><b>${t.name||'\u2014'}</b></td></tr>
+<tr><td class="inst">Capacit\u00e9 nominale :</td><td><b>${t.comps.reduce((s,c)=>s+c.cap,0).toLocaleString()} ${t.volUnit}</b></td></tr>
+<tr><td class="inst">Constructeur :</td><td><b>${t.maker||'\u2014'}</b></td></tr>
+<tr><td class="inst">N\u00b0 de s\u00e9rie :</td><td><b>${t.serie||'\u2014'}</b></td></tr>
+<tr><td class="inst">Ann\u00e9e de fabrication :</td><td><b>${t.year||'\u2014'}</b></td></tr>
+<tr><td class="inst">Exploitant :</td><td><b>${t.exploitant||t.desc||'\u2014'}</b></td></tr>
+<tr><td class="inst">Type v\u00e9hicule :</td><td><b>${t.typeVeh||'Semi-Remorque'}</b></td></tr>
+<tr><td class="inst">N\u00b0 immatriculation :</td><td><b>${t.plate||'\u2014'}</b></td></tr>
+<tr><td class="inst">N\u00b0 ch\u00e2ssis :</td><td><b>${t.chassis||'\u2014'}</b></td></tr>
+<tr><td class="inst">Poste de jaugeage :</td><td><b>${t.poste||'DOUALA'}</b></td></tr>
+</table>
+</td>
+<td style="width:50%;vertical-align:top;border:1pt solid #aaa;padding:6pt">
+<b style="font-size:8pt">LE MINISTRE DU COMMERCE CERTIFIE :</b><br><br>
+<p class="inst">1) Que la citerne r\u00e9cipient-mesure pour hydrocarbure et pour livraison par <b>${t.plate||'\u2014'}</b> a pass\u00e9 l'\u00e9preuve de jaugeage et a \u00e9t\u00e9 identifi\u00e9e suivant les sp\u00e9cifications ci-contre.</p>
+<p class="inst">2) Que dans chacun des <b>${t.comps.length}</b> compartiments, la capacit\u00e9 nominale Vn d\u00e9termine la quantit\u00e9 du produit autoris\u00e9e. La distance de creux C correspondante, la Capacit\u00e9 totale Vt, la hauteur totale Ht et les volumes centim\u00e9triques moyens V sont fix\u00e9s au tableau ci-dessous.</p>
+<p class="inst">3) Que la limite de validit\u00e9 du pr\u00e9sent certificat est fix\u00e9e au <b>${t.nextCheck?new Date(t.nextCheck).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}):'\u2014'}</b>.</p>
+<p class="inst">4) Que la redevance m\u00e9trologique d'un montant de FCFA <b>${t.redevance||'150 000'}</b> a \u00e9t\u00e9 acquitt\u00e9e suivant quittance d\u00e9livr\u00e9e \u00e0 <b>${t.ville||'Douala'}</b>.</p>
+</td>
+</tr></table>
+<h3>TABLEAU R\u00c9CAPITULATIF \u2014 COMPARTIMENTS</h3>
+<table>
+<thead><tr style="background:#141414;color:#fff">
+<th style="border:1px solid #555;padding:4px">COMPARTIMENT</th>
+<th style="border:1px solid #555;padding:4px">CAP. NOM. Vn (${t.volUnit})</th>
+<th style="border:1px solid #555;padding:4px">DIST. CREUX C (${t.creuxUnit})</th>
+<th style="border:1px solid #555;padding:4px">VOL. CENT. MOY. V</th>
+<th style="border:1px solid #555;padding:4px">HT TOTALE H (mm)</th>
+<th style="border:1px solid #555;padding:4px">CAP. TOTALE Vt (${t.volUnit})</th>
+</tr></thead>
+<tbody>${recapR}</tbody>
+</table>
+<br>
+<table style="border:none"><tr>
+<td>A ${t.ville||'Douala'}, Le ${today}</td>
+<td style="text-align:right">Pour le Ministre du Commerce et par D\u00e9l\u00e9gation<br><br><br>___________________________<br><i>Signature &amp; Cachet</i></td>
+</tr></table>
+<br style="page-break-after:always">
+<p class="inst"><b>ANNEXE AU CERTIFICAT DE JAUGEAGE N\u00b0C26/${cn}/A22/MINCOMMERCE/DMQP</b><br>
+Bar\u00e8me donnant le volume en ${t.volUnit} du liquide contenu dans la citerne en fonction de la hauteur en CM de la surface libre de ce liquide au plan de r\u00e9f\u00e9rence P constitu\u00e9 par le bord sup\u00e9rieur du trou d'homme.</p>
+<hr class="sep">
+<table><thead><tr>${compHd}</tr><tr>${subHd}</tr></thead><tbody>${barRows}</tbody></table>
+<br>
+<table style="border:none"><tr>
+<td>A ${t.ville||'Douala'}, Le ${today}</td>
+<td style="text-align:right">Pour le Ministre du Commerce et par D\u00e9l\u00e9gation<br><br><br>___________________________</td>
+</tr></table>
+</body></html>`;
+      const blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='certificat_'+(t.plate||t.name).replace(/\W/g,'_')+'_'+Date.now()+'.doc';
+      a.click();
+      toast('\u2705 Certificat Word export\u00e9');
+      logAudit('Export Word \u2014 '+(t.plate||t.name));
+    }catch(e){toast('\u274c Erreur Word : '+e.message);console.error(e);}
+  },80);
+}
+
+function exportBaremeWord(){
+  toast('\u23f3 Bar\u00e8me Word...');
+  setTimeout(()=>{
+    try{
+      const t=tank();
+      const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+      let sections='';
+      t.comps.forEach((c,i)=>{
+        let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+        let rows=b.map((p,ri)=>{
+          let prev=ri>0?Number(b[ri-1][1]):null;
+          let delta=prev!==null?Math.round(prev-Number(p[1])):null;
+          return `<tr style="background:${ri%2===0?'#f0fcf8':'#fff'}">
+            <td style="text-align:center;color:#006050;font-weight:bold;border:1px solid #ccc;padding:2px 6px">${p[0]}</td>
+            <td style="text-align:right;border:1px solid #ccc;padding:2px 6px">${Number(p[1]).toLocaleString('fr-FR')}</td>
+            <td style="text-align:center;color:#888;border:1px solid #ccc;padding:2px 6px">${delta!==null?'-'+delta:'\u2014'}</td>
+          </tr>`;
+        }).join('');
+        sections+=`${i>0?'<br style="page-break-after:always">':''}
+        <h2 style="color:#006050;font-size:11pt">Compartiment ${i+1} \u2014 ${c.name}</h2>
+        <p style="font-size:8pt;color:#555">Cap. nom.: ${c.cap.toLocaleString()} ${t.volUnit} | Statut: ${c.meta?.status||'\u2014'} | Version: ${c.meta?.version||'v1'} | Source: ${c.meta?.source||'\u2014'}</p>
+        <table style="border-collapse:collapse;width:50%;font-size:9pt">
+          <thead><tr style="background:#006050;color:#fff">
+            <th style="border:1px solid #555;padding:4px;text-align:center">Creux (${t.creuxUnit})</th>
+            <th style="border:1px solid #555;padding:4px;text-align:center">Volume (${t.volUnit})</th>
+            <th style="border:1px solid #555;padding:4px;text-align:center">\u0394/cm</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <br>
+        <table style="border:none;width:100%"><tr>
+          <td>A ${t.ville||'Douala'}, Le ${today}</td>
+          <td style="text-align:right">Pour le Ministre du Commerce et par D\u00e9l\u00e9gation<br><br>___________________________</td>
+        </tr></table>`;
+      });
+      const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;margin:1.5cm}</style></head>
+<body>
+<h1 style="font-size:12pt;text-align:center;color:#006050">BAR\u00c8MES DE JAUGEAGE \u2014 ${t.plate||t.name}</h1>
+<p style="text-align:center;font-size:8pt;color:#555">Certificat N\u00b0${t.certNum||'0012839'}/A22/MINCOMMERCE/DMQP \u2014 G\u00e9n\u00e9r\u00e9 le ${today}</p>
+<hr>
+${sections}
+</body></html>`;
+      const blob=new Blob(['\ufeff'+html],{type:'application/msword;charset=utf-8'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='bareme_'+(t.plate||t.name).replace(/\W/g,'_')+'_'+Date.now()+'.doc';
+      a.click();
+      toast('\u2705 Bar\u00e8me Word export\u00e9');
+    }catch(e){toast('\u274c Erreur Word : '+e.message);console.error(e);}
+  },60);
+}
+
+
+// ── HISTORIQUE ────────────────────────────────────────────────────────────────
+function renderHistory(){
+  let q=(document.getElementById('searchHist')?.value||'').toLowerCase();
+  let arr=hist.filter(h=>(h.tank+h.detail+h.date).toLowerCase().includes(q));
+  let listEl=document.getElementById('histList');
+  let emptyEl=document.getElementById('histEmpty');
+  let actionsEl=document.getElementById('histActions');
+  let badgesEl=document.getElementById('histBadges');
+  badgesEl.innerHTML=`<span class="badge2 ok">${hist.length} relevé(s)</span>`;
+  if(!arr.length){
+    listEl.innerHTML='';
+    emptyEl.style.display='block';
+    actionsEl.style.display='none';
+  } else {
+    emptyEl.style.display='none';
+    actionsEl.style.display='flex';
+    listEl.innerHTML=arr.map(h=>`
+      <div class="hist">
+        <div>
+          <div class="mini">${h.date}</div>
+          <div style="font-weight:900;font-size:13px">${h.tank}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${h.detail}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="v">${h.total.toLocaleString()}</div>
+          <div class="mini">${h.volUnit||'L'}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+function exportHistCSV(){
+  let lines=['Date,Citerne,Total,Unité,Détail'];
+  hist.forEach(h=>lines.push([h.date,h.tank,h.total,h.volUnit||'L','"'+h.detail+'"'].join(',')));
+  let blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  let a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='historique_jaugeage_'+Date.now()+'.csv';
+  a.click();toast('📤 Historique exporté ('+hist.length+' relevés)');
+}
+function clearHistory(){
+  if(!confirm('Supprimer tout l\'historique ('+hist.length+' relevés) ?'))return;
+  hist=[];persist();renderHistory();toast('🗑 Historique effacé');
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function screen(id,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  let names={home:['Jaugeage','Creux → Volume'],new:['Nouvelle citerne','Gérer la flotte'],measure:['Saisie creux','Entrer une mesure'],bareme:['Barèmes','Table + courbe de jaugeage'],quality:['Contrôle qualité','Audit et conformité'],history:['Historique','Relevés terrain']};
+  document.getElementById('headTitle').textContent=names[id][0];
+  document.getElementById('headSub').textContent=names[id][1];
+  render();
+  if(id==='quality')renderQuality();
+  if(id==='bareme')setTimeout(drawChart,50);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(t){
+  let el=document.getElementById('toast');el.textContent=t;el.style.display='block';
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.display='none',2600);
+}
+
+// ── THÈME ─────────────────────────────────────────────────────────────────────
+let currentTheme=localStorage.getItem('jp_theme')||'dark';
+function applyTheme(){
+  document.body.classList.toggle('light',currentTheme==='light');
+  document.getElementById('themeBtn').textContent=currentTheme==='light'?'🌙':'☀';
+}
+function toggleTheme(){
+  currentTheme=currentTheme==='dark'?'light':'dark';
+  localStorage.setItem('jp_theme',currentTheme);
+  applyTheme();
+  toast('Thème '+(currentTheme==='dark'?'sombre':'clair')+' activé');
+}
+
+// ── HORLOGE ───────────────────────────────────────────────────────────────────
+function updateClock(){
+  document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(updateClock,1000);
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+applyTheme();
+buildNewCompFields();
+updateClock();
+render();
+window.addEventListener('resize',()=>{if(document.getElementById('bareme').classList.contains('active'))drawChart();});
+</script>
+</body>
+</html>
