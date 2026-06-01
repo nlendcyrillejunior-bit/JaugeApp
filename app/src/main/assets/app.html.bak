@@ -179,31 +179,16 @@ body.light canvas{background:var(--surface2)}
             </select>
           </div>
         </div>
-        <label>N° Certificat</label>
-        <input id="newCertNum" placeholder="ex: 0012839">
         <label>Nombre de compartiments</label>
         <input id="nbComp" type="number" value="4" min="1" max="12" oninput="buildNewCompFields()">
         <div id="newCompFields" style="margin-top:12px"></div>
-
-        <div style="margin-top:14px;border:1px solid var(--accent);border-radius:13px;padding:13px;background:rgba(0,200,150,0.04)">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);margin-bottom:6px">📋 Données du certificat de jaugeage</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px">
-            Renseigne les colonnes du tableau du certificat pour chaque compartiment.<br>
-            Le barème (0→45 cm, pas de 1 cm) sera calculé automatiquement.
-          </div>
-          <div id="certCompFields"></div>
-          <button class="btn secondary full" style="margin-top:8px" onclick="previewBaremes()">🔢 Calculer les barèmes suggérés</button>
-          <div id="baremePreview" style="margin-top:10px;display:none"></div>
-        </div>
-
-        <button class="btn full" style="margin-top:14px" onclick="createTank()">➕ AJOUTER À LA FLOTTE</button>
+        <button class="btn full" style="margin-top:12px" onclick="createTank()">➕ AJOUTER À LA FLOTTE</button>
       </div>
       <div class="card">
-        <div class="card-title">Algorithme de jaugeage</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6">
-          Intégration numérique depuis le point de référence <b style="color:var(--accent)">(C, Vn)</b>, en utilisant la largeur de la section circulaire calibrée sur Vcm.<br>
-          Correction d'extrémité pour que <b style="color:var(--accent)">V(0) = Vt</b> exactement.<br>
-          Précision typique : <b style="color:var(--accent2)">±0.2%</b> sur les 30 premiers cm.
+        <div class="card-title">Principes de jaugeage</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">
+          Une citerne peut utiliser un barème officiel saisi ou importé, ou un barème généré par points de mesure.<br>
+          Chaque compartiment possède son propre tableau creux-volume et sa courbe de jaugeage.
         </div>
       </div>
       <div class="card">
@@ -305,10 +290,6 @@ body.light canvas{background:var(--surface2)}
           <button class="btn secondary" onclick="document.getElementById('csvInput').click()">📥 Importer CSV</button>
           <button class="btn secondary" onclick="exportCSV()">📤 Exporter CSV</button>
           <button class="btn danger" onclick="clearBareme()">🗑 Vider</button>
-        </div>
-        <div id="regenCertZone" style="display:none;margin-top:10px;padding:10px;background:rgba(0,200,150,0.06);border:1px solid var(--accent);border-radius:10px">
-          <div id="regenCertInfo" style="font-size:10px;color:var(--muted);margin-bottom:7px;line-height:1.5"></div>
-          <button class="btn secondary full" onclick="regenBaremeFromCert()">🔄 Recalculer depuis données certificat</button>
         </div>
         <input id="csvInput" type="file" accept=".csv,text/csv,.txt" style="display:none" onchange="importCSVFile(event)">
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px">
@@ -470,36 +451,20 @@ function interp(c,x){
 
 // ── RENDER PRINCIPAL ──────────────────────────────────────────────────────────
 function render(){
-  // Chips citernes — avec bouton "voir tout" si > 4
-  let allChips=tanks.map((t,i)=>
+  // Chips citernes
+  document.getElementById('tankChips').innerHTML=tanks.map((t,i)=>
     `<span class="chip ${i===ti?'active':''}" onclick="ti=${i};ci=0;typed='';render()">${t.plate||t.name}</span>`
-  );
-  let chipsEl=document.getElementById('tankChips');
-  if(allChips.length<=4){
-    chipsEl.innerHTML=allChips.join('');
-  } else {
-    let expanded=chipsEl.dataset.expanded==='1';
-    let visible=expanded?allChips:allChips.slice(0,4);
-    chipsEl.innerHTML=visible.join('')+
-      `<span class="chip" style="border-color:var(--accent2);color:var(--accent2)" onclick="
-        let el=document.getElementById('tankChips');
-        el.dataset.expanded=el.dataset.expanded==='1'?'0':'1';render()
-      ">${expanded?'▲ Réduire':'▼ +'+( allChips.length-4)+' autres'}</span>`;
-  }
+  ).join('');
 
   // Grille compartiments
   document.getElementById('compGrid').innerHTML=tank().comps.map((c,i)=>{
-    let has=c.creux!==undefined,v=has?interp(c,c.creux):null;
-    // Vt réel = volume au creux=0 du barème (citerne à ras bord)
-    let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
-    let vt=b.length?Number(b[0][1]):c.cap;
-    let p=v!==null?Math.max(0,Math.min(100,Math.round(v/vt*100))):0;
+    let has=c.creux!==undefined,v=has?interp(c,c.creux):null,p=v?Math.max(0,Math.min(100,Math.round(v/c.cap*100))):0;
     return `<div class="comp ${has?'done':''}" onclick="openMeasure(${i})">
       <div class="mini">COMP. ${i+1}</div>
       <div class="comp-name">${c.name}</div>
-      <div><span class="big">${has?c.creux:'__'}</span> <span class="mini">cm</span></div>
+      <div><span class="big">${has?c.creux:'__'}</span> <span class="mini">${tank().creuxUnit}</span></div>
       <div class="vol">${v!==null?v.toLocaleString():'—'} ${tank().volUnit}</div>
-      <div class="mini">/ ${vt.toLocaleString()} ${tank().volUnit} cap.</div>
+      <div class="mini">/ ${c.cap.toLocaleString()} ${tank().volUnit} nom.</div>
       <div class="bar"><span style="width:${p}%"></span></div>
     </div>`;
   }).join('');
@@ -544,7 +509,7 @@ function renderMeasure(){
     `<span class="chip ${i===ci?'active':''}" onclick="ci=${i};typed=comp().creux?.toString()||'';renderMeasure()">C${i+1} ${c.name}</span>`
   ).join('');
   document.getElementById('creuxDisplay').textContent=typed||'__';
-  document.getElementById('creuxDisplayUnit').textContent=' cm';
+  document.getElementById('creuxDisplayUnit').textContent=' '+tank().creuxUnit;
   let rb=document.getElementById('resultBox');
   if(!typed){rb.style.display='none';return;}
   let xv=parseFloat(typed),v=interp(comp(),xv);
@@ -552,13 +517,11 @@ function renderMeasure(){
   document.getElementById('resultValue').textContent=v===null?'N/A':v.toLocaleString();
   document.getElementById('resultDetail').textContent=v===null?'Barème insuffisant ou vide':(tank().volUnit+' — interpolation linéaire');
   if(v!==null){
-    // Vt réel = volume au creux=0
-    let bsorted=[...comp().bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
-    let vt=bsorted.length?Number(bsorted[0][1]):comp().cap;
-    let pct=Math.max(0,Math.min(100,Math.round(v/vt*100)));
-    let idx=bsorted.findIndex(p=>Number(p[0])>=Math.round(xv));
-    let delta=idx>0?Math.abs(Number(bsorted[idx-1][1])-Number(bsorted[idx]?.[1]||0)):0;
-    document.getElementById('resultStats').innerHTML=`Δ ≈ ${Math.round(delta)} ${tank().volUnit}/cm | Remplissage : ${pct}% | Creux : ${typed} cm`;
+    let pct=Math.max(0,Math.min(100,Math.round(v/comp().cap*100)));
+    let b=[...comp().bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+    let idx=b.findIndex(p=>Number(p[0])>=Math.round(xv));
+    let delta=idx>0?Math.abs(Number(b[idx-1][1])-Number(b[idx]?.[1]||0)):0;
+    document.getElementById('resultStats').innerHTML=`Δ ≈ ${Math.round(delta)} ${tank().volUnit}/cm | Remplissage : ${pct}% | Creux : ${typed} ${tank().creuxUnit}`;
   } else {
     document.getElementById('resultStats').innerHTML='Valeur hors plage du barème';
   }
@@ -640,7 +603,7 @@ function pdfTableauBareme(doc,Y,compIdx){
   let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
   if(!b.length)return Y;
   doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(0,100,80);
-  doc.text('Compartiment '+(compIdx+1)+' — '+c.name+' (Cap. nominale : '+Math.round(c.cap).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' '+tank().volUnit+')',margin,Y);
+  doc.text('Compartiment '+(compIdx+1)+' — '+c.name+' (Cap. nominale : '+c.cap.toLocaleString()+' '+tank().volUnit+')',margin,Y);
   Y+=5;
   const colW=[22,32,18];
   const startCols=[margin,margin+72,margin+144];
@@ -668,7 +631,7 @@ function pdfTableauBareme(doc,Y,compIdx){
       doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(0,100,80);
       doc.text(String(p[0]),sx+2,Y+3.5);
       doc.setFont('helvetica','normal');doc.setTextColor(20,20,20);
-      doc.text(Number(p[1]).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '),sx+colW[0]+2,Y+3.5);
+      doc.text(Number(p[1]).toLocaleString('fr-FR'),sx+colW[0]+2,Y+3.5);
       doc.setTextColor(120,120,120);
       doc.text(delta!==null?'-'+delta:'—',sx+colW[0]+colW[1]+2,Y+3.5);
     });
@@ -740,195 +703,23 @@ function pdfCourbe(doc,Y,compIdx){
 }
 
 // ── CRÉATION CITERNE ──────────────────────────────────────────────────────────
-let _pendingBaremes = null;
-
 function buildNewCompFields(){
   let nb=parseInt(document.getElementById('nbComp')?.value||'4');if(nb<1)nb=1;if(nb>12)nb=12;
   let box=document.getElementById('newCompFields');if(!box)return;
   let prev=[...box.querySelectorAll('.ncr')].map(r=>({name:r.querySelector('.newCompName')?.value,cap:r.querySelector('.newCompCap')?.value}));
   box.innerHTML='';
   for(let i=0;i<nb;i++){
-    let name=prev[i]?.name||['Avant','2','3','Arrière','5','6','7','8','9','10','11','12'][i]||'C'+(i+1);
+    let name=prev[i]?.name||'C'+(i+1);
     let cap=prev[i]?.cap||(i===nb-1&&nb>1?6000:10000);
     box.innerHTML+=`<div class="card ncr" style="background:var(--surface2);padding:12px;margin-bottom:8px">
       <div class="mini" style="margin-bottom:8px">Compartiment ${i+1}</div>
       <div class="grid">
-        <div><label>Nom</label><input class="newCompName" value="${name}" placeholder="ex: Avant" oninput="syncCertNames()"></div>
-        <div><label>Capacité nom. Vn</label><input class="newCompCap" type="number" min="0" value="${cap}" placeholder="ex: 10000"></div>
-      </div>
-    </div>`;
-  }
-  buildCertCompFields();
-  _pendingBaremes = null;
-  document.getElementById('baremePreview').style.display='none';
-}
-
-function syncCertNames(){
-  let names=[...document.querySelectorAll('.newCompName')].map(i=>i.value||'?');
-  [...document.querySelectorAll('.certRowTitle')].forEach((el,i)=>{
-    el.textContent='Comp. '+(i+1)+' — '+(names[i]||'C'+(i+1));
-  });
-}
-
-function buildCertCompFields(){
-  let nb=parseInt(document.getElementById('nbComp')?.value||'4');if(nb<1)nb=1;if(nb>12)nb=12;
-  let box=document.getElementById('certCompFields');if(!box)return;
-  let prev=[...box.querySelectorAll('.cert-row')].map(r=>({
-    C:r.querySelector('.certC')?.value,
-    H:r.querySelector('.certH')?.value,
-    Vcm:r.querySelector('.certVcm')?.value,
-    Vt:r.querySelector('.certVt')?.value,
-  }));
-  box.innerHTML='';
-  let names=[...document.querySelectorAll('.newCompName')].map(i=>i.value||'?');
-  for(let i=0;i<nb;i++){
-    box.innerHTML+=`<div class="cert-row" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">
-      <div class="certRowTitle" style="font-size:10px;font-weight:900;color:var(--accent);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px">Comp. ${i+1} — ${names[i]||'C'+(i+1)}</div>
-      <div class="grid">
-        <div><label>Distance creux C (mm)</label><input class="certC" type="number" min="0" value="${prev[i]?.C||''}" placeholder="ex: 171"></div>
-        <div><label>Hauteur totale H (mm)</label><input class="certH" type="number" min="1" value="${prev[i]?.H||''}" placeholder="ex: 1868"></div>
-      </div>
-      <div class="grid">
-        <div><label>Vol. centim. moy. V (dm³/cm)</label><input class="certVcm" type="number" step="0.01" value="${prev[i]?.Vcm||''}" placeholder="ex: 22.85"></div>
-        <div><label>Capacité totale Vt (dm³)</label><input class="certVt" type="number" min="0" value="${prev[i]?.Vt||''}" placeholder="ex: 10265"></div>
+        <div><label>Nom</label><input class="newCompName" value="${name}" placeholder="ex: Avant"></div>
+        <div><label>Capacité nom.</label><input class="newCompCap" type="number" min="0" value="${cap}" placeholder="ex: 10000"></div>
       </div>
     </div>`;
   }
 }
-
-// ── ALGORITHME DE GÉNÉRATION DU BARÈME ────────────────────────────────────────
-// Méthode : intégration numérique depuis (C_cm, Vn) en utilisant la largeur
-// de section circulaire calibrée sur Vcm. Correction affine pour V(0)=Vt.
-function widthAtCreux(r_cm, creux_cm){
-  let h = 2*r_cm - creux_cm;
-  if(h <= 0 || h >= 2*r_cm) return 0;
-  return 2*Math.sqrt(Math.max(0, 2*r_cm*h - h*h));
-}
-
-function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm){
-  if(!Vt||!Vn||!C_mm||!H_mm||!Vcm) return null;
-  let C_cm = C_mm / 10;
-  let H_cm = H_mm / 10;
-  let r_cm = H_cm / 2;
-  let wC = widthAtCreux(r_cm, C_cm);
-  if(wC <= 0) return null;
-  let k = Vcm / wC; // facteur de calibration
-
-  // Intégration numérique depuis C_cm vers 0 et vers 45
-  let MAX_C = 45;
-  let STEP = 0.002; // pas fin pour précision
-  
-  // Accumuler les volumes bruts pour tous creux entiers 0..45
-  let rawVols = new Array(MAX_C + 1).fill(0);
-  rawVols[Math.round(C_cm)] = Vn; // point de départ (arrondi pour l'entier le plus proche)
-  
-  // On calcule en continu et on sample aux entiers
-  // Intégration vers creux=0 (volume croissant)
-  let v = Vn, c = C_cm;
-  let pts_up = [[C_cm, Vn]];
-  while(c > 0){
-    let step = Math.min(STEP, c);
-    v += k * widthAtCreux(r_cm, c) * step; // creux diminue -> volume augmente
-    c -= step;
-    pts_up.push([c, v]);
-  }
-  // Intégration vers creux=45 (volume décroissant)
-  v = Vn; c = C_cm;
-  let pts_down = [[C_cm, Vn]];
-  while(c < MAX_C){
-    let step = Math.min(STEP, MAX_C - c);
-    v -= k * widthAtCreux(r_cm, c) * step;
-    c += step;
-    pts_down.push([c, Math.max(0, v)]);
-  }
-  
-  // Combiner toutes les points et interpoler aux entiers
-  let allPts = [...pts_up, ...pts_down].sort((a,b)=>a[0]-b[0]);
-  
-  // Interpolation linéaire aux entiers 0..45
-  function interpAt(cx){
-    for(let i=0;i<allPts.length-1;i++){
-      let x1=allPts[i][0], x2=allPts[i+1][0];
-      if(cx>=x1&&cx<=x2){
-        let t=(cx-x1)/(x2-x1);
-        return allPts[i][1]*(1-t)+allPts[i+1][1]*t;
-      }
-    }
-    return allPts[allPts.length-1][1];
-  }
-  
-  let raw = [];
-  for(let c2=0;c2<=MAX_C;c2++) raw.push(interpAt(c2));
-  
-  // Correction affine : V(0) doit valoir Vt exactement
-  // On applique une correction linéaire de (Vt - raw[0]) à creux=0
-  // qui décroît jusqu'à 0 à creux=C_cm (et au-delà pas de correction)
-  let corrAt0 = Vt - raw[0];
-  let result = [];
-  for(let c2=0;c2<=MAX_C;c2++){
-    let corr = c2 <= C_cm ? corrAt0 * (C_cm - c2) / C_cm : 0;
-    let val = Math.round(raw[c2] + corr);
-    result.push([c2, Math.max(0, val)]);
-  }
-  
-  // Garantir monotonie décroissante
-  for(let i=1;i<result.length;i++){
-    if(result[i][1] > result[i-1][1]) result[i][1] = result[i-1][1];
-  }
-  return result;
-}
-
-let _savedCertData = [];
-
-function previewBaremes(){
-  let nb=parseInt(document.getElementById('nbComp')?.value||'4');
-  let vu=document.getElementById('volUnit').value;
-  let certRows=[...document.querySelectorAll('.cert-row')];
-  let compRows=[...document.querySelectorAll('.ncr')];
-  let previews=[];
-  _pendingBaremes=[];
-  _savedCertData=[];
-  let allOk=true;
-  for(let i=0;i<nb;i++){
-    let cr=certRows[i], cpr=compRows[i];
-    let name=cpr?.querySelector('.newCompName')?.value||'C'+(i+1);
-    let Vn=parseFloat(cpr?.querySelector('.newCompCap')?.value)||0;
-    let C=parseFloat(cr?.querySelector('.certC')?.value);
-    let H=parseFloat(cr?.querySelector('.certH')?.value);
-    let Vcm=parseFloat(cr?.querySelector('.certVcm')?.value);
-    let Vt=parseFloat(cr?.querySelector('.certVt')?.value);
-    if(!cr||isNaN(C)||isNaN(H)||isNaN(Vcm)||isNaN(Vt)){
-      _pendingBaremes.push(null);_savedCertData.push(null);
-      previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--warn)">⚠ C${i+1} ${name} : données incomplètes (C, H, V, Vt requis)</div>`);
-      allOk=false;continue;
-    }
-    let pts=generateBaremeFromCert(Vt,Vn||Vt,C,H,Vcm);
-    _savedCertData.push({C,H,Vcm,Vt,Vn:Vn||Vt});
-    if(!pts){
-      _pendingBaremes.push(null);
-      previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--danger)">❌ C${i+1} ${name} : erreur de calcul</div>`);
-      allOk=false;continue;
-    }
-    _pendingBaremes.push(pts);
-    // Quelques valeurs clés à afficher
-    let v0=pts[0][1],vC=pts[Math.round(C/10)]?.[1]??'?',v30=pts[30]?.[1]??'?',v45=pts[45]?.[1]??'?';
-    previews.push(`<div style="padding:10px;background:var(--surface3);border-radius:10px;margin-bottom:8px;border:1px solid var(--accent)">
-      <div style="font-size:11px;font-weight:900;color:var(--accent);margin-bottom:5px">✓ C${i+1} — ${name} — 46 points (0→45 cm)</div>
-      <div style="font-size:10px;color:var(--muted);line-height:1.8">
-        Creux 0 cm → <b style="color:var(--text)">${Number(v0).toLocaleString()}</b> ${vu} (cible Vt: ${Vt.toLocaleString()})<br>
-        Creux ${Math.round(C/10)} cm → <b style="color:var(--text)">${Number(vC).toLocaleString()}</b> ${vu} (Vn: ${(Vn||Vt).toLocaleString()})<br>
-        Creux 30 cm → <b style="color:var(--text)">${Number(v30).toLocaleString()}</b> ${vu}<br>
-        Creux 45 cm → <b style="color:var(--text)">${Number(v45).toLocaleString()}</b> ${vu}
-      </div>
-    </div>`);
-  }
-  let box=document.getElementById('baremePreview');
-  box.style.display='block';
-  box.innerHTML=`<div style="font-size:11px;font-weight:900;color:${allOk?'var(--accent)':'var(--warn)'};margin-bottom:8px">${allOk?'✅ Barèmes calculés — prêts':'⚠ Vérifier les données manquantes'}</div>${previews.join('')}`;
-  if(allOk) toast('✅ '+nb+' barème(s) calculé(s) avec succès');
-  else toast('⚠ Données incomplètes sur certains compartiments');
-}
-
 function createTank(){
   let n=document.getElementById('newName').value.trim()||('Citerne '+(tanks.length+1));
   let p=document.getElementById('newPlate').value.trim();
@@ -936,38 +727,14 @@ function createTank(){
   if(nb<1)nb=1;
   let cu=document.getElementById('creuxUnit').value;
   let vu=document.getElementById('volUnit').value;
-  let certNum=document.getElementById('newCertNum')?.value?.trim()||'';
-  let certRows=[...document.querySelectorAll('.cert-row')];
   let comps=[...document.querySelectorAll('.ncr')].map((r,i)=>{
     let name=r.querySelector('.newCompName').value||'C'+(i+1);
     let cap=parseFloat(r.querySelector('.newCompCap').value)||10000;
-    let bareme=(_pendingBaremes&&_pendingBaremes[i])||null;
-    let certD=(_savedCertData&&_savedCertData[i])||null;
-    // Si pas de barème précalculé, tenter calcul à la volée
-    if(!bareme){
-      let cr=certRows[i];
-      if(cr){
-        let C=parseFloat(cr.querySelector('.certC')?.value);
-        let H=parseFloat(cr.querySelector('.certH')?.value);
-        let Vcm=parseFloat(cr.querySelector('.certVcm')?.value);
-        let Vt=parseFloat(cr.querySelector('.certVt')?.value);
-        if(!isNaN(C)&&!isNaN(H)&&!isNaN(Vcm)&&!isNaN(Vt)){
-          bareme=generateBaremeFromCert(Vt,cap,C,H,Vcm);
-          certD={C,H,Vcm,Vt,Vn:cap};
-        }
-      }
-    }
-    if(!bareme){
-      // Barème linéaire par défaut cm par cm 0→45
-      bareme=[];
-      for(let c=0;c<=45;c++) bareme.push([c,Math.max(0,Math.round(cap*(1-c/45)))]);
-    }
+    let sampleVol=cap;
     return {
-      name,cap,certData:certD,
-      meta:{status:certD?'officiel':'provisoire',version:'v1',
-            source:certNum?'Certificat N°'+certNum:'Saisie application',
-            date:new Date().toISOString().slice(0,10),locked:false},
-      bareme
+      name,cap,
+      meta:{status:'provisoire',version:'v1',source:'Saisie application',date:new Date().toISOString().slice(0,10),locked:false},
+      bareme:[[0,sampleVol],[5,Math.round(sampleVol*.99)],[10,Math.round(sampleVol*.97)],[15,Math.round(sampleVol*.93)],[20,Math.round(sampleVol*.85)],[25,Math.round(sampleVol*.72)],[30,Math.round(sampleVol*.56)],[35,Math.round(sampleVol*.40)],[40,Math.round(sampleVol*.24)],[45,Math.round(sampleVol*.08)]]
     };
   });
   tanks.push({
@@ -976,14 +743,13 @@ function createTank(){
     year:document.getElementById('newYear')?.value||'',
     product:document.getElementById('newProduct')?.value||'',
     nextCheck:document.getElementById('newNextCheck')?.value||'',
-    certNum,creuxUnit:cu,volUnit:vu,comps,
+    creuxUnit:cu,volUnit:vu,comps,
     audits:['Création — '+new Date().toLocaleString('fr-FR')]
   });
-  _pendingBaremes=null;_savedCertData=[];
   ti=tanks.length-1;ci=0;
   render();
   screen('home',document.querySelectorAll('nav button')[0]);
-  toast('✅ Citerne "'+n+'" ajoutée (barème 0→45 cm)');
+  toast('✅ Citerne "'+n+'" ajoutée à la flotte');
 }
 function deleteTank(){
   if(tanks.length<=1)return toast('⚠ Impossible de supprimer la dernière citerne');
@@ -1019,17 +785,6 @@ function renderBareme(){
     `<span class="chip ${i===ci?'active':''}" onclick="ci=${i};renderBareme()">C${i+1} ${c.name}</span>`
   ).join('');
 
-  // Zone recalcul depuis données certificat
-  let d=comp().certData;
-  let regenZone=document.getElementById('regenCertZone');
-  let regenInfo=document.getElementById('regenCertInfo');
-  if(d&&d.C&&d.H&&d.Vcm&&d.Vt){
-    regenZone.style.display='block';
-    regenInfo.innerHTML=`Données cert. stockées : C=${d.C} mm | H=${d.H} mm | V=${d.Vcm} dm³/cm | Vt=${Number(d.Vt).toLocaleString()} dm³`;
-  } else {
-    regenZone.style.display='none';
-  }
-
   comp().bareme=(comp().bareme||[]).sort((a,b)=>Number(a[0])-Number(b[0]));
   let b=comp().bareme;
   if(!b.length){
@@ -1051,18 +806,6 @@ function renderBareme(){
     </tr>`;
   }).join('');
   drawChart();
-}
-
-function regenBaremeFromCert(){
-  if(comp().meta?.locked){toast('🔒 Barème verrouillé — déverrouillez d\'abord');return;}
-  let d=comp().certData;
-  if(!d||!d.C||!d.H||!d.Vcm||!d.Vt){toast('⚠ Aucune donnée certificat pour ce compartiment');return;}
-  let pts=generateBaremeFromCert(d.Vt,d.Vn||comp().cap,d.C,d.H,d.Vcm);
-  if(!pts){toast('❌ Erreur de calcul');return;}
-  comp().bareme=pts;
-  logAudit('Barème recalculé depuis certificat C'+(ci+1)+' — '+pts.length+' points');
-  render();
-  toast('✅ Barème recalculé ('+pts.length+' points, 0→45 cm)');
 }
 function cleanNumber(v){
   if(v===null||v===undefined)return NaN;
@@ -1237,7 +980,7 @@ function drawChart(){
   b.forEach(p=>{ctx.beginPath();ctx.arc(sx(Number(p[0])),sy(Number(p[1])),3.5,0,7);ctx.fill();});
   // Axe labels
   ctx.fillStyle='#7E91B4';ctx.font='10px Courier New';ctx.textAlign='center';
-  ctx.fillText('Creux (cm)',pad.l+w/2,H-1);
+  ctx.fillText('Creux ('+tank().creuxUnit+')',pad.l+w/2,H-1);
 }
 
 // ── CONTRÔLE QUALITÉ ──────────────────────────────────────────────────────────
@@ -1356,7 +1099,7 @@ function exportCertificatPDF(){
       doc.setDrawColor(160,160,160);doc.setLineWidth(0.3);doc.rect(m,Y,cw,88,'S');
       const champG=[
         ['Type :',tank().name||'Transport Routier'],
-        ['Capacit\u00e9 nominale :',tank().comps.reduce((s,c)=>s+c.cap,0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' '+tank().volUnit],
+        ['Capacit\u00e9 nominale :',tank().comps.reduce((s,c)=>s+c.cap,0).toLocaleString()+' '+tank().volUnit],
         ['Constructeur :',tank().maker||'\u2014'],
         ['N\u00b0 de s\u00e9rie :',tank().serie||'\u2014'],
         ['Ann\u00e9e de fabrication :',tank().year||'\u2014'],
@@ -1396,49 +1139,26 @@ function exportCertificatPDF(){
       doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(0,100,80);
       doc.text('TABLEAU R\u00c9CAPITULATIF \u2014 COMPARTIMENTS',m,Y);Y+=4;
       const cws=[30,25,25,32,24,28];
-      const ths=['COMPARTIMENT','CAP. NOM. Vn\n('+tank().volUnit+')','DIST. CREUX\nC (mm)','VOL.CENT.MOY.\nV ('+tank().volUnit+'/cm)','HT TOT.\nH (mm)','CAP. TOT.\nVt ('+tank().volUnit+')'];
+      const ths=['COMPARTIMENT','CAP. NOM. Vn\n('+tank().volUnit+')','DIST. CREUX\nC ('+tank().creuxUnit+')','VOL.CENT.MOY.\nV ('+tank().volUnit+'/cm)','HT TOT.\nH (mm)','CAP. TOT.\nVt ('+tank().volUnit+')'];
       doc.setFillColor(20,20,20);doc.rect(m,Y,W-m*2,9,'F');
       doc.setFont('helvetica','bold');doc.setFontSize(6);doc.setTextColor(255,255,255);
       let cx=m;
       ths.forEach((h,i)=>{h.split('\n').forEach((l,li)=>doc.text(l,cx+cws[i]/2,Y+3+li*3,{align:'center'}));cx+=cws[i];});
       Y+=9;
-      // Fonction de formatage des nombres sans séparateurs locaux (évite le | de jsPDF)
-      const fmtN=v=>{
-        let s=Math.round(Number(v)).toString();
-        return s.replace(/\B(?=(\d{3})+(?!\d))/g,' ');
-      };
-      const fmtD=v=>{
-        // Pour les décimales (Vcm)
-        let n=Number(v);
-        if(isNaN(n))return String(v);
-        let s=n.toFixed(2);
-        let [int,dec]=s.split('.');
-        return int.replace(/\B(?=(\d{3})+(?!\d))/g,' ')+','+dec;
-      };
       tank().comps.forEach((c,i)=>{
         let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
-        // Distance de creux C : depuis certData si dispo, sinon dernier creux du barème
-        let dc=c.certData?.C!=null ? String(Math.round(c.certData.C)) : (b.length?String(b[b.length-1][0]):'\u2014');
-        // Hauteur totale H : depuis certData si dispo
-        let ht=c.certData?.H!=null ? String(Math.round(c.certData.H)) : (c.creux_max?String(c.creux_max):'\u2014');
-        // Vcm : depuis certData si dispo, sinon calculé depuis barème
-        let vcm;
-        if(c.certData?.Vcm!=null){
-          vcm=fmtD(c.certData.Vcm);
-        } else {
-          let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v));
-          let vm=vols.length>=2?Math.abs(vols[0]-vols[vols.length-1])/(vols.length-1):c.cap/45;
-          vcm=fmtD(vm);
-        }
-        // Vt : depuis certData si dispo, sinon V(creux=0) du barème
-        let vt=c.certData?.Vt!=null ? fmtN(c.certData.Vt) : (b.length?fmtN(b[0][1]):fmtN(c.cap));
+        let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v));
+        let vmoy=vols.length?Math.round(vols.reduce((s,v)=>s+v,0)/vols.length):c.cap;
+        let dc=b.length?b[b.length-1][0]:'\u2014';
+        let ht=c.creux_max||1870;
+        let vt=b.length?Number(b[0][1]):c.cap;
         if(i%2===0){doc.setFillColor(242,252,248);doc.rect(m,Y,W-m*2,8,'F');}
         cx=m;
-        const vals=[(i+1)+'\u00b0 '+c.name, fmtN(c.cap), dc, vcm, ht, vt];
+        const vals=[(i+1)+'\u00b0 '+c.name,c.cap.toLocaleString('fr-FR'),String(dc),vmoy.toLocaleString('fr-FR'),String(ht),vt.toLocaleString('fr-FR')];
         vals.forEach((v,j)=>{
-          doc.setFont('helvetica',j===0?'bold':'normal');
+          doc.setFont(j===0?'helvetica':'helvetica',j===0?'bold':'normal');
           doc.setFontSize(7);doc.setTextColor(j===0?0:20,j===0?100:20,j===0?80:20);
-          doc.text(String(v),cx+cws[j]/2,Y+5,{align:'center',maxWidth:cws[j]-2});cx+=cws[j];
+          doc.text(v,cx+cws[j]/2,Y+5,{align:'center',maxWidth:cws[j]-2});cx+=cws[j];
         });
         doc.setDrawColor(200,200,200);doc.setLineWidth(0.15);doc.line(m,Y+8,W-m,Y+8);Y+=8;
       });
@@ -1502,7 +1222,7 @@ function exportCertificatPDF(){
             doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(0,100,80);
             doc.text(String(p[0]),x+cmW/2,Ya+3.2,{align:'center'});
             doc.setFont('helvetica','normal');doc.setTextColor(20,20,20);
-            doc.text(Number(p[1]).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '),x+cmW+dm3W/2,Ya+3.2,{align:'center'});
+            doc.text(Number(p[1]).toLocaleString('fr-FR'),x+cmW+dm3W/2,Ya+3.2,{align:'center'});
           }
           if(i<nb-1){doc.setDrawColor(210,210,210);doc.setLineWidth(0.1);doc.line(x+pairW,Ya,x+pairW,Ya+4.5);}
           doc.setDrawColor(210,210,210);doc.line(x+cmW,Ya,x+cmW,Ya+4.5);
