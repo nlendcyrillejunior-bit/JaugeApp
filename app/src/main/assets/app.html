@@ -802,26 +802,35 @@ function buildCertCompFields(){
 // Vcm = delta / 2  (dm³/cm)
 // À compléter avec d'autres Vn quand les certificats correspondants seront disponibles.
 const VCMT_TABLE = [
-  { Vn:  1000, delta:  6 },  // Vcm ≈  3.0
-  { Vn:  2000, delta:  9 },  // Vcm ≈  4.5
-  { Vn:  3000, delta: 12 },  // Vcm ≈  6.0
-  { Vn:  4000, delta: 12 },  // Vcm ≈  6.0
-  { Vn:  6000, delta: 28 },  // Vcm ≈ 14.0
-  { Vn: 10000, delta: 45 },  // Vcm ≈ 22.5
+  { Vn:  1000, delta:  6 },
+  { Vn:  2000, delta: [9, 23] },
+  { Vn:  3000, delta: [12, 26] },
+  { Vn:  4000, delta: 12 },
+  { Vn:  5000, delta: [32, 40] },
+  { Vn:  6000, delta: 28 },
+  { Vn: 10000, delta: 45 },
+  { Vn: 12000, delta: 50 },
+  { Vn: 18000, delta: 76 },
 ];
 
-// Retourne { vcm, source } :
-//   source = 'fourni'    → Vcm donné explicitement
-//   source = 'table'     → estimé depuis la table empirique
-//   source = 'absent'    → Vn pas encore dans la table
+// Retourne { vcm, source, choices } :
+//   source = 'fourni'   → Vcm donné explicitement
+//   source = 'table'    → estimé depuis la table (delta unique)
+//   source = 'choix'    → plusieurs deltas possibles, choices=[{delta,vcm},...] à présenter
+//   source = 'absent'   → Vn pas encore dans la table
 function resolveVcm(Vcm, Vn){
   if(Vcm && !isNaN(Vcm) && Vcm > 0)
     return { vcm: Vcm, source: 'fourni' };
-  // Cherche Vn dans la table (tolérance ±5%)
   let entry = VCMT_TABLE.find(e => Math.abs(e.Vn - Vn) / e.Vn <= 0.05);
-  if(entry)
-    return { vcm: entry.delta / 2, source: 'table' };
-  return { vcm: null, source: 'absent' };
+  if(!entry) return { vcm: null, source: 'absent' };
+  if(Array.isArray(entry.delta)){
+    return {
+      vcm: null,
+      source: 'choix',
+      choices: entry.delta.map(d => ({ delta: d, vcm: d / 2 }))
+    };
+  }
+  return { vcm: entry.delta / 2, source: 'table' };
 }
 
 function widthAtCreux(r_cm, creux_cm){
@@ -935,6 +944,46 @@ function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm){
 
 let _savedCertData = [];
 
+function selectDelta(compIdx, delta, Vt, Vn, C_mm, H_mm){
+  let vcm = delta / 2;
+  let pts = generateBaremeFromCert(Vt, Vn, C_mm, H_mm, vcm);
+  if(!pts){ toast('❌ Erreur de calcul'); return; }
+  if(!_pendingBaremes) _pendingBaremes = [];
+  if(!_savedCertData)  _savedCertData  = [];
+  _pendingBaremes[compIdx] = pts;
+  _savedCertData[compIdx]  = { C: C_mm, H: H_mm, Vcm: vcm, Vt, Vn };
+  // Mise à jour visuelle du bloc
+  let box = document.getElementById('deltaResult_'+compIdx);
+  if(box){
+    let vu = document.getElementById('volUnit').value;
+    box.innerHTML = `✅ delta=${delta} → Vcm=${vcm} sélectionné — `+
+      `V(0)=${pts[0][1].toLocaleString()} ${vu} | `+
+      `V(${Math.round(C_mm/10)}cm)=${(pts[Math.round(C_mm/10)]?.[1]??'?').toLocaleString()} ${vu}`;
+    // Désactiver les boutons de ce bloc
+    box.previousElementSibling && [...box.parentElement.querySelectorAll('button')].forEach(b=>b.disabled=true);
+  }
+  // Vérifier si tous les compartiments sont prêts
+  let nb = parseInt(document.getElementById('nbComp')?.value||'4');
+  let allReady = [...Array(nb).keys()].every(i => _pendingBaremes[i] !== null && _pendingBaremes[i] !== undefined);
+  if(allReady){
+    let summary = document.getElementById('baremePreview');
+    if(summary){
+      let existingMsg = summary.querySelector('.all-ready-msg');
+      if(!existingMsg){
+        let msg = document.createElement('div');
+        msg.className = 'all-ready-msg';
+        msg.style.cssText = 'margin-top:10px;padding:8px;background:rgba(0,200,150,0.1);border-radius:8px;font-size:11px;font-weight:900;color:var(--accent)';
+        msg.textContent = '✅ Tous les compartiments sont prêts — cliquez sur Ajouter à la flotte';
+        summary.appendChild(msg);
+      }
+    }
+    toast('✅ Tous les barèmes sont prêts');
+  } else {
+    toast('✅ C'+(compIdx+1)+' configuré — delta='+delta+' Vcm='+vcm);
+  }
+}
+
+
 function previewBaremes(){
   let nb=parseInt(document.getElementById('nbComp')?.value||'4');
   let vu=document.getElementById('volUnit').value;
@@ -961,6 +1010,25 @@ function previewBaremes(){
     }
     // Résoudre Vcm
     let resolved = resolveVcm(hasVcm?Vcm:null, Vn||Vt);
+
+    // Cas ambigu : plusieurs deltas possibles → demander à l'utilisateur
+    if(resolved.source === 'choix'){
+      _pendingBaremes.push(null); _savedCertData.push(null);
+      let opts = resolved.choices.map(ch =>
+        `<button class="btn secondary" style="margin:3px;font-size:11px"
+          onclick="selectDelta(${i}, ${ch.delta}, ${Vt}, ${Vn||Vt}, ${C}, ${H})">
+          delta=${ch.delta} → Vcm=${ch.vcm}
+        </button>`
+      ).join('');
+      previews.push(`<div style="padding:10px;background:var(--surface3);border-radius:10px;margin-bottom:8px;border:1px solid var(--warn)">
+        <div style="font-size:11px;font-weight:900;color:var(--warn);margin-bottom:7px">⚠ C${i+1} — ${name} — Vn=${Vn} : plusieurs deltas possibles</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:7px">Choisissez le delta correspondant à cette citerne :</div>
+        ${opts}
+        <div id="deltaResult_${i}" style="margin-top:8px;font-size:11px;color:var(--accent)"></div>
+      </div>`);
+      allOk = false; continue;
+    }
+
     let pts=generateBaremeFromCert(Vt,Vn||Vt,C,H,hasVcm?Vcm:null);
     _savedCertData.push({C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:Vn||Vt});
     if(!pts){
@@ -1132,16 +1200,26 @@ function regenBaremeFromCert(){
   let d=comp().certData;
   if(!d||!d.C||!d.H||!d.Vt){toast('⚠ Données minimales manquantes (C, H, Vt requis)');return;}
   let resolved=resolveVcm(d.Vcm,d.Vn||comp().cap);
+  // Cas ambigu : plusieurs deltas possibles
+  if(resolved.source==='choix'){
+    let opts=resolved.choices.map(ch=>`delta=${ch.delta} → Vcm=${ch.vcm}`).join('\n');
+    let chosen=prompt(`Vn=${d.Vn||comp().cap} — plusieurs deltas possibles :\n${opts}\n\nEntrez le delta à utiliser :`);
+    if(!chosen)return;
+    let chosenDelta=parseFloat(chosen);
+    if(isNaN(chosenDelta)){toast('❌ Valeur invalide');return;}
+    d.Vcm=chosenDelta/2;
+    resolved={source:'choix',vcm:d.Vcm};
+  }
   let pts=generateBaremeFromCert(d.Vt,d.Vn||comp().cap,d.C,d.H,d.Vcm||null);
   if(!pts){toast('❌ Erreur de calcul');return;}
   comp().bareme=pts;
-  let srcLabels={'fourni':'Vcm certificat','table':'Vcm table empirique (Vn='+( d.Vn||comp().cap)+')','absent':'géométrie pure'};
-  let statusMap={'fourni':'officiel','table':'calculé','absent':'estimation'};
-  comp().meta.status=statusMap[resolved.source];
+  let statusMap={'fourni':'officiel','table':'calculé','choix':'calculé','absent':'estimation'};
+  let srcLabels={'fourni':'Vcm certificat','table':'Vcm table (Vn='+(d.Vn||comp().cap)+')','choix':'Vcm choisi (delta='+Math.round((d.Vcm||0)*2)+')','absent':'géométrie pure'};
+  let msgs={'fourni':'✅ Précis — Vcm certificat','table':'✅ Vcm table empirique','choix':'✅ Vcm choisi manuellement','absent':'⚠ Estimation — Vn hors table'};
+  comp().meta.status=statusMap[resolved.source]||'calculé';
   logAudit('Barème recalculé ('+srcLabels[resolved.source]+') C'+(ci+1)+' — '+pts.length+' points');
   render();
-  let msgs={'fourni':'✅ Précis — Vcm du certificat','table':'✅ Bon — Vcm estimé depuis table (Vn)','absent':'⚠ Estimation — Vcm absent et Vn hors table'};
-  toast(msgs[resolved.source]+' ('+pts.length+' pts)');
+  toast((msgs[resolved.source]||'✅')+' ('+pts.length+' pts)');
 }
 function cleanNumber(v){
   if(v===null||v===undefined)return NaN;
