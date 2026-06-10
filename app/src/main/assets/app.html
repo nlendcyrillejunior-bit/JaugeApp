@@ -789,16 +789,41 @@ function buildCertCompFields(){
         <div><label>Hauteur totale H (mm)</label><input class="certH" type="number" min="1" value="${prev[i]?.H||''}" placeholder="ex: 1868"></div>
       </div>
       <div class="grid">
-        <div><label>Vol. centim. moy. V (dm³/cm)</label><input class="certVcm" type="number" step="0.01" value="${prev[i]?.Vcm||''}" placeholder="ex: 22.85"></div>
+        <div><label>Vol. centim. moy. V (dm³/cm) <span style="color:var(--accent);font-size:9px">optionnel</span></label><input class="certVcm" type="number" step="0.01" value="${prev[i]?.Vcm||''}" placeholder="ex: 22.85 (optionnel)"></div>
         <div><label>Capacité totale Vt (dm³)</label><input class="certVt" type="number" min="0" value="${prev[i]?.Vt||''}" placeholder="ex: 10265"></div>
       </div>
     </div>`;
   }
 }
 
-// ── ALGORITHME DE GÉNÉRATION DU BARÈME ────────────────────────────────────────
-// Méthode : intégration numérique depuis (C_cm, Vn) en utilisant la largeur
-// de section circulaire calibrée sur Vcm. Correction affine pour V(0)=Vt.
+// ── TABLE EMPIRIQUE Vn → delta → Vcm ─────────────────────────────────────────
+// Alimentée progressivement selon les certificats réels observés.
+// delta = V[C-2] - V[C]  ≈  V[C] - V[C+2]  (variation sur 2 cm autour de C)
+// Vcm = delta / 2  (dm³/cm)
+// À compléter avec d'autres Vn quand les certificats correspondants seront disponibles.
+const VCMT_TABLE = [
+  { Vn:  1000, delta:  6 },  // Vcm ≈  3.0
+  { Vn:  2000, delta:  9 },  // Vcm ≈  4.5
+  { Vn:  3000, delta: 12 },  // Vcm ≈  6.0
+  { Vn:  4000, delta: 12 },  // Vcm ≈  6.0
+  { Vn:  6000, delta: 28 },  // Vcm ≈ 14.0
+  { Vn: 10000, delta: 45 },  // Vcm ≈ 22.5
+];
+
+// Retourne { vcm, source } :
+//   source = 'fourni'    → Vcm donné explicitement
+//   source = 'table'     → estimé depuis la table empirique
+//   source = 'absent'    → Vn pas encore dans la table
+function resolveVcm(Vcm, Vn){
+  if(Vcm && !isNaN(Vcm) && Vcm > 0)
+    return { vcm: Vcm, source: 'fourni' };
+  // Cherche Vn dans la table (tolérance ±5%)
+  let entry = VCMT_TABLE.find(e => Math.abs(e.Vn - Vn) / e.Vn <= 0.05);
+  if(entry)
+    return { vcm: entry.delta / 2, source: 'table' };
+  return { vcm: null, source: 'absent' };
+}
+
 function widthAtCreux(r_cm, creux_cm){
   let h = 2*r_cm - creux_cm;
   if(h <= 0 || h >= 2*r_cm) return 0;
@@ -806,75 +831,105 @@ function widthAtCreux(r_cm, creux_cm){
 }
 
 function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm){
-  if(!Vt||!Vn||!C_mm||!H_mm||!Vcm) return null;
+  // Vcm est optionnel — résolution automatique via table empirique si absent.
+  if(!Vt||!Vn||!C_mm||!H_mm) return null;
+  let resolved = resolveVcm(Vcm, Vn);
   let C_cm = C_mm / 10;
   let H_cm = H_mm / 10;
   let r_cm = H_cm / 2;
-  let wC = widthAtCreux(r_cm, C_cm);
-  if(wC <= 0) return null;
-  let k = Vcm / wC; // facteur de calibration
-
-  // Intégration numérique depuis C_cm vers 0 et vers 45
   let MAX_C = 45;
-  let STEP = 0.002; // pas fin pour précision
-  
-  // Accumuler les volumes bruts pour tous creux entiers 0..45
-  let rawVols = new Array(MAX_C + 1).fill(0);
-  rawVols[Math.round(C_cm)] = Vn; // point de départ (arrondi pour l'entier le plus proche)
-  
-  // On calcule en continu et on sample aux entiers
-  // Intégration vers creux=0 (volume croissant)
-  let v = Vn, c = C_cm;
-  let pts_up = [[C_cm, Vn]];
-  while(c > 0){
-    let step = Math.min(STEP, c);
-    v += k * widthAtCreux(r_cm, c) * step; // creux diminue -> volume augmente
-    c -= step;
-    pts_up.push([c, v]);
-  }
-  // Intégration vers creux=45 (volume décroissant)
-  v = Vn; c = C_cm;
-  let pts_down = [[C_cm, Vn]];
-  while(c < MAX_C){
-    let step = Math.min(STEP, MAX_C - c);
-    v -= k * widthAtCreux(r_cm, c) * step;
-    c += step;
-    pts_down.push([c, Math.max(0, v)]);
-  }
-  
-  // Combiner toutes les points et interpoler aux entiers
-  let allPts = [...pts_up, ...pts_down].sort((a,b)=>a[0]-b[0]);
-  
-  // Interpolation linéaire aux entiers 0..45
-  function interpAt(cx){
-    for(let i=0;i<allPts.length-1;i++){
-      let x1=allPts[i][0], x2=allPts[i+1][0];
-      if(cx>=x1&&cx<=x2){
-        let t=(cx-x1)/(x2-x1);
-        return allPts[i][1]*(1-t)+allPts[i+1][1]*t;
-      }
+  let STEP = 0.002;
+  let withVcm = resolved.vcm !== null;
+
+  // ── MÉTHODE 1 : avec Vcm (intégration calibrée) ────────────────────────────
+  if(withVcm){
+    let wC = widthAtCreux(r_cm, C_cm);
+    if(wC <= 0) return null;
+    let k = resolved.vcm / wC;
+
+    let v = Vn, c = C_cm;
+    let pts_up = [[C_cm, Vn]];
+    while(c > 0){
+      let step = Math.min(STEP, c);
+      v += k * widthAtCreux(r_cm, c) * step;
+      c -= step;
+      pts_up.push([c, v]);
     }
-    return allPts[allPts.length-1][1];
+    v = Vn; c = C_cm;
+    let pts_down = [[C_cm, Vn]];
+    while(c < MAX_C){
+      let step = Math.min(STEP, MAX_C - c);
+      v -= k * widthAtCreux(r_cm, c) * step;
+      c += step;
+      pts_down.push([c, Math.max(0, v)]);
+    }
+    let allPts = [...pts_up, ...pts_down].sort((a,b)=>a[0]-b[0]);
+    function interpAt(cx){
+      for(let i=0;i<allPts.length-1;i++){
+        let x1=allPts[i][0], x2=allPts[i+1][0];
+        if(cx>=x1&&cx<=x2){ let t=(cx-x1)/(x2-x1); return allPts[i][1]*(1-t)+allPts[i+1][1]*t; }
+      }
+      return allPts[allPts.length-1][1];
+    }
+    let raw=[];
+    for(let c2=0;c2<=MAX_C;c2++) raw.push(interpAt(c2));
+    // Correction affine : V(0) = Vt exactement
+    let corrAt0 = Vt - raw[0];
+    let result=[];
+    for(let c2=0;c2<=MAX_C;c2++){
+      let corr = c2 <= C_cm ? corrAt0*(C_cm-c2)/C_cm : 0;
+      result.push([c2, Math.max(0, Math.round(raw[c2]+corr))]);
+    }
+    for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
+    return result;
   }
-  
-  let raw = [];
-  for(let c2=0;c2<=MAX_C;c2++) raw.push(interpAt(c2));
-  
-  // Correction affine : V(0) doit valoir Vt exactement
-  // On applique une correction linéaire de (Vt - raw[0]) à creux=0
-  // qui décroît jusqu'à 0 à creux=C_cm (et au-delà pas de correction)
-  let corrAt0 = Vt - raw[0];
-  let result = [];
+
+  // ── MÉTHODE 2 : sans Vcm (géométrie pure + 2 points durs) ──────────────────
+  // Étape 1 : longueur effective L depuis (creux=0, Vt)
+  // Vt [dm³] = L [cm] × π×r² [cm²] / 1000
+  let A_full = Math.PI * r_cm * r_cm; // cm²
+  let L_cm = (Vt * 1000) / A_full;   // cm
+
+  function segArea(r, h_liq){
+    if(h_liq<=0) return 0;
+    if(h_liq>=2*r) return Math.PI*r*r;
+    let cv=Math.max(-1,Math.min(1,(r-h_liq)/r));
+    return r*r*Math.acos(cv)-(r-h_liq)*Math.sqrt(Math.max(0,2*r*h_liq-h_liq*h_liq));
+  }
+
+  // Étape 2 : volumes bruts géométriques pour 0→45 cm
+  let raw=[];
   for(let c2=0;c2<=MAX_C;c2++){
-    let corr = c2 <= C_cm ? corrAt0 * (C_cm - c2) / C_cm : 0;
-    let val = Math.round(raw[c2] + corr);
-    result.push([c2, Math.max(0, val)]);
+    let h_liq = H_cm - c2;
+    let vol = Math.round(L_cm * segArea(r_cm, h_liq) / 1000);
+    raw.push(Math.max(0, vol));
   }
-  
+
+  // Étape 3 : correction affine sur [0, C_cm] pour passer par (0,Vt) ET (C_cm,Vn)
+  // V_corrigé(c) = V_brut(c) + correction(c)
+  // correction(0)    = Vt - raw[0]
+  // correction(C_cm) = Vn - raw[C_cm]   (point dur 2)
+  // Interpolation linéaire entre ces deux corrections
+  let c_ref = Math.round(C_cm);
+  let corr0  = Vt - raw[0];
+  let corrC  = Vn - (raw[c_ref]||raw[raw.length-1]);
+
+  let result=[];
+  for(let c2=0;c2<=MAX_C;c2++){
+    let corr;
+    if(c2 <= c_ref){
+      // Interpolation linéaire entre correction en 0 et correction en C_cm
+      let t = c_ref > 0 ? c2/c_ref : 0;
+      corr = corr0*(1-t) + corrC*t;
+    } else {
+      // Au-delà de C : on laisse évoluer la géométrie naturellement
+      // mais on ancre la pente sur corrC (pas de correction supplémentaire)
+      corr = 0;
+    }
+    result.push([c2, Math.max(0, Math.round(raw[c2]+corr))]);
+  }
   // Garantir monotonie décroissante
-  for(let i=1;i<result.length;i++){
-    if(result[i][1] > result[i-1][1]) result[i][1] = result[i-1][1];
-  }
+  for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
   return result;
 }
 
@@ -897,23 +952,38 @@ function previewBaremes(){
     let H=parseFloat(cr?.querySelector('.certH')?.value);
     let Vcm=parseFloat(cr?.querySelector('.certVcm')?.value);
     let Vt=parseFloat(cr?.querySelector('.certVt')?.value);
-    if(!cr||isNaN(C)||isNaN(H)||isNaN(Vcm)||isNaN(Vt)){
+    let hasVcm = !isNaN(Vcm) && Vcm > 0;
+    // Minimum requis : C, H, Vt
+    if(!cr||isNaN(C)||isNaN(H)||isNaN(Vt)){
       _pendingBaremes.push(null);_savedCertData.push(null);
-      previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--warn)">⚠ C${i+1} ${name} : données incomplètes (C, H, V, Vt requis)</div>`);
+      previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--warn)">⚠ C${i+1} ${name} : données minimales requises : C (mm), H (mm), Vt</div>`);
       allOk=false;continue;
     }
-    let pts=generateBaremeFromCert(Vt,Vn||Vt,C,H,Vcm);
-    _savedCertData.push({C,H,Vcm,Vt,Vn:Vn||Vt});
+    // Résoudre Vcm
+    let resolved = resolveVcm(hasVcm?Vcm:null, Vn||Vt);
+    let pts=generateBaremeFromCert(Vt,Vn||Vt,C,H,hasVcm?Vcm:null);
+    _savedCertData.push({C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:Vn||Vt});
     if(!pts){
       _pendingBaremes.push(null);
       previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--danger)">❌ C${i+1} ${name} : erreur de calcul</div>`);
       allOk=false;continue;
     }
     _pendingBaremes.push(pts);
-    // Quelques valeurs clés à afficher
     let v0=pts[0][1],vC=pts[Math.round(C/10)]?.[1]??'?',v30=pts[30]?.[1]??'?',v45=pts[45]?.[1]??'?';
-    previews.push(`<div style="padding:10px;background:var(--surface3);border-radius:10px;margin-bottom:8px;border:1px solid var(--accent)">
-      <div style="font-size:11px;font-weight:900;color:var(--accent);margin-bottom:5px">✓ C${i+1} — ${name} — 46 points (0→45 cm)</div>
+    // Badge selon source Vcm
+    let qualBadge, borderCol;
+    if(resolved.source==='fourni'){
+      borderCol='var(--accent)';
+      qualBadge=`<span style="background:rgba(0,200,150,0.15);color:var(--accent);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">✓ PRÉCIS — Vcm=${Vcm} (certificat)</span>`;
+    } else if(resolved.source==='table'){
+      borderCol='var(--accent2)';
+      qualBadge=`<span style="background:rgba(0,150,255,0.12);color:var(--accent2);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">~ BON — Vcm=${resolved.vcm} (table Vn=${Vn})</span>`;
+    } else {
+      borderCol='var(--warn)';
+      qualBadge=`<span style="background:rgba(255,170,0,0.15);color:var(--warn);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">⚠ ESTIMATION — Vcm absent et Vn=${Vn} pas encore en table</span>`;
+    }
+    previews.push(`<div style="padding:10px;background:var(--surface3);border-radius:10px;margin-bottom:8px;border:1px solid ${borderCol}">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap">${qualBadge}<span style="font-size:11px;font-weight:900;color:var(--text)">C${i+1} — ${name} — 46 pts</span></div>
       <div style="font-size:10px;color:var(--muted);line-height:1.8">
         Creux 0 cm → <b style="color:var(--text)">${Number(v0).toLocaleString()}</b> ${vu} (cible Vt: ${Vt.toLocaleString()})<br>
         Creux ${Math.round(C/10)} cm → <b style="color:var(--text)">${Number(vC).toLocaleString()}</b> ${vu} (Vn: ${(Vn||Vt).toLocaleString()})<br>
@@ -951,11 +1021,11 @@ function createTank(){
         let H=parseFloat(cr.querySelector('.certH')?.value);
         let Vcm=parseFloat(cr.querySelector('.certVcm')?.value);
         let Vt=parseFloat(cr.querySelector('.certVt')?.value);
-        if(!isNaN(C)&&!isNaN(H)&&!isNaN(Vcm)&&!isNaN(Vt)){
-          bareme=generateBaremeFromCert(Vt,cap,C,H,Vcm);
-          certD={C,H,Vcm,Vt,Vn:cap};
-        }
-      }
+        let hasVcm=!isNaN(Vcm)&&Vcm>0;
+        if(!isNaN(C)&&!isNaN(H)&&!isNaN(Vt)){
+          bareme=generateBaremeFromCert(Vt,cap,C,H,hasVcm?Vcm:null);
+          certD={C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:cap};
+        }      }
     }
     if(!bareme){
       // Barème linéaire par défaut cm par cm 0→45
@@ -964,7 +1034,8 @@ function createTank(){
     }
     return {
       name,cap,certData:certD,
-      meta:{status:certD?'officiel':'provisoire',version:'v1',
+      meta:{status: certD ? (()=>{ let r=resolveVcm(certD.Vcm,certD.Vn); return r.source==='fourni'?'officiel':r.source==='table'?'calculé':'estimation'; })() : 'provisoire',
+            version:'v1',
             source:certNum?'Certificat N°'+certNum:'Saisie application',
             date:new Date().toISOString().slice(0,10),locked:false},
       bareme
@@ -1011,10 +1082,13 @@ function renderBareme(){
   document.getElementById('barSource').value=comp().meta.source||'';
   document.getElementById('barDate').value=comp().meta.date||'';
   document.getElementById('lockBtn').textContent=comp().meta.locked?'🔓 Déverrouiller (copie de travail)':'🔒 Verrouiller barème officiel';
+  let _sc={'officiel':'ok','calculé':'ok','provisoire':'warn','estimation':'warn'};
+  let _sn={'estimation':'⚠ Vcm absent — hors table','calculé':'~ Vcm via table empirique'};
   document.getElementById('barMetaBadges').innerHTML=
-    `<span class="badge2 ${comp().meta.status==='officiel'?'ok':comp().meta.status==='provisoire'?'warn':'ok'}">${comp().meta.status}</span>`+
+    `<span class="badge2 ${_sc[comp().meta.status]||'warn'}">${comp().meta.status}</span>`+
     `<span class="badge2 ${comp().meta.locked?'danger':'warn'}">${comp().meta.locked?'🔒 verrouillé':'🔓 modifiable'}</span>`+
-    `<span class="badge2 ok">${comp().meta.version||'v1'}</span>`;
+    `<span class="badge2 ok">${comp().meta.version||'v1'}</span>`+
+    (_sn[comp().meta.status]?`<span class="badge2 warn" style="font-size:9px">${_sn[comp().meta.status]}</span>`:'');
   document.getElementById('barTabs').innerHTML=tank().comps.map((c,i)=>
     `<span class="chip ${i===ci?'active':''}" onclick="ci=${i};renderBareme()">C${i+1} ${c.name}</span>`
   ).join('');
@@ -1056,13 +1130,18 @@ function renderBareme(){
 function regenBaremeFromCert(){
   if(comp().meta?.locked){toast('🔒 Barème verrouillé — déverrouillez d\'abord');return;}
   let d=comp().certData;
-  if(!d||!d.C||!d.H||!d.Vcm||!d.Vt){toast('⚠ Aucune donnée certificat pour ce compartiment');return;}
-  let pts=generateBaremeFromCert(d.Vt,d.Vn||comp().cap,d.C,d.H,d.Vcm);
+  if(!d||!d.C||!d.H||!d.Vt){toast('⚠ Données minimales manquantes (C, H, Vt requis)');return;}
+  let resolved=resolveVcm(d.Vcm,d.Vn||comp().cap);
+  let pts=generateBaremeFromCert(d.Vt,d.Vn||comp().cap,d.C,d.H,d.Vcm||null);
   if(!pts){toast('❌ Erreur de calcul');return;}
   comp().bareme=pts;
-  logAudit('Barème recalculé depuis certificat C'+(ci+1)+' — '+pts.length+' points');
+  let srcLabels={'fourni':'Vcm certificat','table':'Vcm table empirique (Vn='+( d.Vn||comp().cap)+')','absent':'géométrie pure'};
+  let statusMap={'fourni':'officiel','table':'calculé','absent':'estimation'};
+  comp().meta.status=statusMap[resolved.source];
+  logAudit('Barème recalculé ('+srcLabels[resolved.source]+') C'+(ci+1)+' — '+pts.length+' points');
   render();
-  toast('✅ Barème recalculé ('+pts.length+' points, 0→45 cm)');
+  let msgs={'fourni':'✅ Précis — Vcm du certificat','table':'✅ Bon — Vcm estimé depuis table (Vn)','absent':'⚠ Estimation — Vcm absent et Vn hors table'};
+  toast(msgs[resolved.source]+' ('+pts.length+' pts)');
 }
 function cleanNumber(v){
   if(v===null||v===undefined)return NaN;
