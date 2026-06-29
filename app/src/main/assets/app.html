@@ -199,7 +199,7 @@ body.light .sidebar{background:var(--surface)}
 <div class="app">
   <div class="status">
     <span id="clock">--:--</span>
-    <span>JAUGE-PRO v2.0 — Desktop</span>
+    <span>JAUGE-PRO</span>
     <span id="offlineStatus">⚡ Hors-ligne</span>
   </div>
 
@@ -1082,8 +1082,72 @@ function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm, ctrlPts){
     }
 
     let spl=steffenSpline(xs,ys);
+
+    // Trouver le dernier point de contrôle réel (hors point estimé à 45)
+    let lastRealX = Math.max(...knownPts.filter(p=>p[0]<45).map(p=>p[0]));
+    let lastRealY = knownPts.find(p=>p[0]===lastRealX)?.[1] ?? Math.round(spl(lastRealX));
+
+    // ── EXTRAPOLATION HERMITE au-delà du dernier point réel ──────────────────
+    // Spline de Hermite entre (lastRealX, lastRealY) et (45, V45_geo)
+    // avec pente connue en lastRealX et pente théorique en 45.
+    function hermiteExtrap(x0, y0, x1, y1, m0, m1){
+      // Retourne une fonction d'évaluation de la spline Hermite cubique
+      let dt = x1 - x0;
+      if(dt <= 0) return ()=>y1;
+      return function(x){
+        let t = (x - x0) / dt;
+        if(t <= 0) return y0;
+        if(t >= 1) return y1;
+        let h00 = 2*t*t*t - 3*t*t + 1;
+        let h10 = t*t*t - 2*t*t + t;
+        let h01 = -2*t*t*t + 3*t*t;
+        let h11 = t*t*t - t*t;
+        return h00*y0 + h10*m0*dt + h01*y1 + h11*m1*dt;
+      };
+    }
+
+    // Pente au dernier point réel : moyenne sur les 3 derniers segments connus
+    // en excluant les valeurs aberrantes (> 3× la médiane des pentes)
+    let refPts = knownPts.filter(p=>p[0]<=lastRealX).slice(-5);
+    let pentes = [];
+    for(let i=1;i<refPts.length;i++){
+      let dp = (refPts[i][1]-refPts[i-1][1])/(refPts[i][0]-refPts[i-1][0]);
+      pentes.push(dp);
+    }
+    // Médiane des pentes
+    let sortedP = [...pentes].sort((a,b)=>a-b);
+    let medP = sortedP[Math.floor(sortedP.length/2)];
+    // Exclure les pentes > 2.5× la médiane en valeur absolue
+    let goodP = pentes.filter(p=>Math.abs(p)<=2.5*Math.abs(medP));
+    // Pondération : plus de poids aux derniers segments
+    let wts = goodP.map((_,i)=>i+1);
+    let wSum = wts.reduce((a,b)=>a+b,0);
+    let pente_last = goodP.reduce((s,p,i)=>s+p*wts[i],0) / wSum;
+
+    // Pente théorique en cm=45 (bas du cylindre)
+    let wC_ref = widthAtCreux(r_cm, C_cm);
+    let k_ref = (resolved.vcm || (Vt-Vn)/(C_cm||1)) / (wC_ref||1);
+    let pente_45 = -k_ref * widthAtCreux(r_cm, 45);
+
+    // Point géométrique à 45cm (déjà calculé dans knownPts)
+    let V45 = knownPts.find(p=>p[0]===45)?.[1] ?? Math.round(spl(45));
+
+    let hermite = lastRealX < MAX_C - 1
+      ? hermiteExtrap(lastRealX, lastRealY, 45, V45, pente_last, pente_45)
+      : null;
+
     let result=[];
-    for(let c=0;c<=MAX_C;c++) result.push([c,Math.max(0,Math.round(spl(c)))]);
+    for(let c=0;c<=MAX_C;c++){
+      let v;
+      if(c <= lastRealX){
+        v = Math.max(0, Math.round(spl(c)));
+      } else if(hermite){
+        v = Math.max(0, Math.round(hermite(c)));
+      } else {
+        v = Math.max(0, Math.round(spl(c)));
+      }
+      result.push([c, v]);
+    }
     for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
     return result;
   }
@@ -2279,7 +2343,11 @@ function toast(t){
 let currentTheme=localStorage.getItem('jp_theme')||'dark';
 function applyTheme(){
   document.body.classList.toggle('light',currentTheme==='light');
-  document.getElementById('themeBtn').textContent=currentTheme==='light'?'🌙':'☀';
+  let icon=currentTheme==='light'?'🌙':'☀';
+  let btn=document.getElementById('themeBtn');
+  let btnM=document.getElementById('themeBtnMobile');
+  if(btn) btn.textContent=icon;
+  if(btnM){btnM.textContent=icon;btnM.style.display='flex';}
 }
 function toggleTheme(){
   currentTheme=currentTheme==='dark'?'light':'dark';
