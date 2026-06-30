@@ -956,37 +956,66 @@ function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm, controlPts){
   // sur le barème officiel, on force la courbe à passer exactement par eux.
   let cps = (controlPts||[]).filter(p=>p[0]>=0&&p[0]<=MAX_C);
   if(cps.length >= 1){
-    // Construire la liste des nœuds : (0,Vt) + points de contrôle.
-    // Le couple (C,Vn) n'est PAS forcé ici car Vn (capacité autorisée) ne
-    // correspond pas toujours exactement au volume réel au creux C ; les
-    // points de contrôle lus sur le barème officiel sont prioritaires.
-    let nodes = {};
-    nodes[0] = Vt;                       // point dur fiable : V(0)=Vt
-    cps.forEach(p=>{ nodes[Math.round(p[0])] = p[1]; });
-    // (C,Vn) n'est PAS ajouté quand des points de contrôle existent : Vn (capacité
-    // autorisée) peut différer du volume réel au creux C, et les points de contrôle
-    // lus sur le barème officiel définissent déjà la courbe avec fiabilité.
-    // Point à 45 si absent : estimation géométrique pour borner la courbe
-    if(nodes[MAX_C] === undefined){
-      let A_full = Math.PI*r_cm*r_cm;
-      let L_cm = (Vt*1000)/A_full;
-      let cv=Math.max(-1,Math.min(1,(r_cm-(H_cm-MAX_C))/r_cm));
-      let segA = (H_cm-MAX_C)<=0 ? 0 : r_cm*r_cm*Math.acos(cv)-(r_cm-(H_cm-MAX_C))*Math.sqrt(Math.max(0,2*r_cm*(H_cm-MAX_C)-(H_cm-MAX_C)*(H_cm-MAX_C)));
-      // Extrapolation simple : prolonger la pente du dernier intervalle connu
-      let xsK=Object.keys(nodes).map(Number).sort((a,b)=>a-b);
+    // Construire la liste des nœuds avec les positions de creux RÉELLES (non
+    // arrondies). Un point "16.1:5300" reste à 16.1, pas rangé dans la case 16,
+    // ce qui évite que le creux entier 16 retourne brutalement 5300.
+    // Le couple (C,Vn) n'est PAS forcé : Vn (capacité autorisée) ne correspond
+    // pas toujours au volume réel au creux C ; les points de contrôle priment.
+    let nodeMap = new Map();
+    nodeMap.set(0, Vt);                    // point dur fiable : V(0)=Vt
+    cps.forEach(p=>{ nodeMap.set(p[0], p[1]); });  // position exacte conservée
+
+    // Point à 45 si absent : extrapolation de la pente du dernier intervalle
+    if(!nodeMap.has(MAX_C)){
+      let xsK=[...nodeMap.keys()].sort((a,b)=>a-b);
       let last=xsK[xsK.length-1], prev=xsK[xsK.length-2]??0;
-      let slope=(nodes[last]-nodes[prev])/((last-prev)||1);
-      nodes[MAX_C] = Math.round(nodes[last] + slope*(MAX_C-last));
+      let slope=(nodeMap.get(last)-nodeMap.get(prev))/((last-prev)||1);
+      nodeMap.set(MAX_C, nodeMap.get(last) + slope*(MAX_C-last));
     }
-    let xs = Object.keys(nodes).map(Number).sort((a,b)=>a-b);
-    let ys = xs.map(x=>nodes[x]);
+    let xs = [...nodeMap.keys()].sort((a,b)=>a-b);
+    let ys = xs.map(x=>nodeMap.get(x));
     let spl = steffenSpline(xs, ys);
+    // Valeurs continues lisses à chaque creux entier
+    let raw=[];
+    for(let c2=0;c2<=MAX_C;c2++) raw.push(spl(c2));
+    // Arrondi initial
     let result=[];
-    for(let c2=0;c2<=MAX_C;c2++) result.push([c2, Math.max(0, Math.round(spl(c2)))]);
-    // Forcer les valeurs exactes aux nœuds connus
-    xs.forEach((x,idx)=>{ if(x>=0&&x<=MAX_C) result[x]=[x, Math.round(ys[idx])]; });
-    for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
-    return result;
+    for(let c2=0;c2<=MAX_C;c2++) result.push(Math.max(0, Math.round(raw[c2])));
+    result[0]=Math.round(Vt);
+    // Points de contrôle à un creux entier : valeur exacte forcée
+    cps.forEach(p=>{ if(Number.isInteger(p[0])) result[p[0]]=Math.round(p[1]); });
+    // Monotonie du volume
+    for(let i=1;i<=MAX_C;i++) if(result[i]>result[i-1]) result[i]=result[i-1];
+
+    // ── LISSAGE DES DELTAS (option A) ───────────────────────────────────────
+    // Élimine les micro-oscillations d'arrondi pour que la variation par cm
+    // évolue régulièrement : elle s'accentue jusqu'au centre de la citerne
+    // (diamètre max) puis s'atténue. On ne s'écarte jamais de plus de ~1 dm³
+    // de la valeur calculée, et les points de contrôle restent verrouillés.
+    let deltaRaw=[];
+    for(let i=1;i<=MAX_C;i++) deltaRaw.push(raw[i]-raw[i-1]);
+    let centerIdx=0, minD=Infinity;
+    for(let i=0;i<deltaRaw.length;i++){ if(deltaRaw[i]<minD){minD=deltaRaw[i];centerIdx=i;} }
+    let locked=new Set([0]);
+    cps.forEach(p=>{ if(Number.isInteger(p[0])) locked.add(p[0]); });
+    for(let pass=0; pass<6; pass++){
+      for(let i=1;i<MAX_C;i++){
+        if(locked.has(i)) continue;
+        let dPrev=result[i]-result[i-1];
+        let dNext=result[i+1]-result[i];
+        // Avant le centre : la pente doit s'accentuer (dNext ≤ dPrev) ;
+        // après le centre : elle doit s'atténuer (dNext ≥ dPrev).
+        let needFix = (i<=centerIdx) ? (dNext > dPrev) : (dNext < dPrev);
+        if(needFix){
+          let cand=result[i] + (i<=centerIdx ? 1 : -1);
+          if(Math.abs(cand-raw[i])<=1.5 && cand<=result[i-1] && cand>=result[i+1]){
+            result[i]=cand;
+          }
+        }
+      }
+    }
+    for(let i=1;i<=MAX_C;i++) if(result[i]>result[i-1]) result[i]=result[i-1];
+    return result.map((v,i)=>[i,v]);
   }
 
   // ── MÉTHODE 1 : avec Vcm (intégration calibrée) ──
