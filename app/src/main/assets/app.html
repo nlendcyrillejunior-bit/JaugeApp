@@ -3,153 +3,80 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jaugeage Pro</title>
-<meta name="description" content="Application professionnelle de jaugeage de citernes hydrocarbures">
 <meta name="theme-color" content="#0B1220">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Jaugeage Pro">
-<link rel="manifest" id="pwaManifest">
-<script>
-// ── PWA MANIFEST (injecté dynamiquement) ──────────────────────────────────────
-const manifest = {
-  name: "Jaugeage Pro",
-  short_name: "Jauge-Pro",
-  description: "Application professionnelle de jaugeage de citernes hydrocarbures",
-  start_url: "./",
-  display: "standalone",
-  background_color: "#050914",
-  theme_color: "#0B1220",
-  orientation: "any",
-  icons: [
-    { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230B1220'/><text y='68' x='50' text-anchor='middle' font-size='55' font-family='monospace' fill='%2300C896'>⛽</text></svg>", sizes: "192x192", type: "image/svg+xml" },
-    { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230B1220'/><text y='68' x='50' text-anchor='middle' font-size='55' font-family='monospace' fill='%2300C896'>⛽</text></svg>", sizes: "512x512", type: "image/svg+xml" }
-  ]
-};
-const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
-
-// ── SERVICE WORKER (PWA offline) ──────────────────────────────────────────────
-if('serviceWorker' in navigator){
-  const swCode = `
-    const CACHE = 'jaugeage-pro-v1';
-    self.addEventListener('install', e => {
-      self.skipWaiting();
-    });
-    self.addEventListener('activate', e => {
-      e.waitUntil(clients.claim());
-    });
-    self.addEventListener('fetch', e => {
-      e.respondWith(
-        caches.open(CACHE).then(cache =>
-          fetch(e.request).then(r => { cache.put(e.request, r.clone()); return r; })
-          .catch(() => caches.match(e.request))
-        )
-      );
-    });
-  `;
-  const swBlob = new Blob([swCode], {type:'application/javascript'});
-  const swUrl = URL.createObjectURL(swBlob);
-  navigator.serviceWorker.register(swUrl).catch(()=>{});
-}
-</script>
+<title>Jaugeage Pro</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
   --bg:#0B1220;--surface:#131C2E;--surface2:#1A2540;--surface3:#222F4A;
   --accent:#00C896;--accent2:#0099FF;--text:#E8EEF8;--muted:#7E91B4;
   --warn:#F5A623;--danger:#E24B4A;--border:#2A3A5C;
-  --sidebar-w:220px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:#050914;color:var(--text);font-family:"Courier New",monospace;-webkit-font-smoothing:antialiased;height:100vh;overflow:hidden}
-
-/* ── LAYOUT DESKTOP ── */
-.app{display:flex;flex-direction:column;height:100vh;max-width:100%;background:var(--bg)}
-.app-body{display:flex;flex:1;overflow:hidden}
-
-/* Sidebar */
-.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
-.sidebar-logo{padding:20px 16px 12px;border-bottom:1px solid var(--border)}
-.sidebar-logo .title{color:var(--accent);font-size:16px;text-transform:uppercase;letter-spacing:2px;font-weight:900}
-.sidebar-logo .subtitle{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px}
-.sidebar-nav{display:flex;flex-direction:column;padding:10px 0;flex:1}
-.sidebar-nav button{background:transparent;border:0;color:var(--muted);font-family:"Courier New",monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:12px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;text-align:left}
-.sidebar-nav button:hover{background:var(--surface2);color:var(--text)}
-.sidebar-nav button.active{background:var(--surface2);color:var(--accent);border-left-color:var(--accent);font-weight:900}
-.sidebar-nav .nav-icon{font-size:16px;width:20px;text-align:center}
-.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px}
-
-/* Main content */
-.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+body{margin:0;background:#050914;color:var(--text);font-family:"Courier New",monospace;-webkit-font-smoothing:antialiased}
+.app{max-width:430px;min-height:100vh;margin:auto;background:var(--bg);display:flex;flex-direction:column;position:relative}
+.status{height:34px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:11px;color:var(--muted);flex-shrink:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;flex-shrink:0}
 .title{color:var(--accent);font-size:15px;text-transform:uppercase;letter-spacing:2px;font-weight:900}
 .subtitle{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:3px}
 .iconbtn{width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-main{flex:1;padding:20px;overflow-y:auto;overflow-x:hidden}
-.screen{display:none;flex-direction:column;gap:16px}
+main{flex:1;padding:15px;overflow-y:auto;overflow-x:hidden}
+.screen{display:none;flex-direction:column;gap:14px}
 .screen.active{display:flex}
-
-/* Desktop grid layouts */
-.desktop-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-.desktop-cols-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start}
-.desktop-wide{grid-column:1/-1}
-
-/* Mobile nav (caché sur desktop) */
-nav{display:none}
-.status{height:32px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:11px;color:var(--muted);flex-shrink:0}
-
-/* Cards */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:14px}
 .card-title{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:10px}
-.chips{display:flex;gap:8px;flex-wrap:wrap;padding-bottom:3px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
 .chip{background:var(--surface2);border:1px solid var(--border);border-radius:25px;padding:7px 13px;color:var(--muted);white-space:nowrap;font-size:12px;cursor:pointer;transition:all .15s;user-select:none}
 .chip.active{background:var(--accent);color:#001b14;border-color:var(--accent);font-weight:900}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.comp{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px;cursor:pointer;transition:border-color .15s;user-select:none}
+.comp{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px;cursor:pointer;transition:border-color .15s;user-select:none}
 .comp.done{border-color:var(--accent)}
 .comp:hover{border-color:var(--accent2)}
 .mini{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 .comp-name{font-size:13px;font-weight:900;margin:5px 0}
-.big{font-size:28px;font-weight:900;color:var(--accent)}
+.big{font-size:26px;font-weight:900;color:var(--accent)}
 .vol{color:var(--accent2);font-size:13px;font-weight:900}
 .bar{height:5px;background:var(--surface3);border-radius:5px;margin-top:8px;overflow:hidden}
 .bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:5px;transition:width .4s}
-.total{border:1px solid var(--accent);background:var(--surface2);border-radius:15px;padding:16px;display:flex;justify-content:space-between;align-items:center}
-.total-value{font-size:34px;color:var(--accent);font-weight:900;font-family:"Courier New",monospace}
-.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.total{border:1px solid var(--accent);background:var(--surface2);border-radius:15px;padding:14px;display:flex;justify-content:space-between;align-items:center}
+.total-value{font-size:31px;color:var(--accent);font-weight:900;font-family:"Courier New",monospace}
+.btnrow{display:flex;gap:8px}
 button{cursor:pointer;font-family:"Courier New",monospace;font-size:13px;outline:none}
-.btn{border:0;border-radius:11px;background:var(--accent);color:#001b14;font-weight:900;letter-spacing:1px;padding:11px 14px;transition:opacity .15s}
+.btn{border:0;border-radius:11px;background:var(--accent);color:#001b14;font-weight:900;letter-spacing:1px;padding:12px 14px;transition:opacity .15s}
 .btn:hover{opacity:.85}
 .btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
 .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
 .btn.full{width:100%}
-input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 12px;font-family:"Courier New",monospace;font-size:14px;outline:none;transition:border-color .15s}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px;font-family:"Courier New",monospace;font-size:15px;outline:none;transition:border-color .15s}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 select option{background:var(--surface2)}
-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin:8px 0 5px}
+label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin:8px 0 6px}
 textarea{min-height:74px;resize:vertical}
-.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:340px}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .numpad button{background:var(--surface2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:22px;font-weight:900;padding:16px;transition:background .1s}
-.numpad button:active,.numpad button:hover{background:var(--surface3)}
+.numpad button:active{background:var(--surface3)}
 .numpad .ok{background:var(--accent);color:#001b14;border-color:var(--accent)}
 .numpad .del{border-color:var(--danger);color:var(--danger)}
-.result{border:1px solid var(--accent2);background:var(--surface2);border-radius:15px;padding:16px;text-align:center}
-.result .value{font-size:48px;color:var(--accent);font-weight:900;font-family:"Courier New",monospace}
-table{width:100%;border-collapse:collapse;font-size:13px}
+.result{border:1px solid var(--accent2);background:var(--surface2);border-radius:15px;padding:14px;text-align:center}
+.result .value{font-size:42px;color:var(--accent);font-weight:900;font-family:"Courier New",monospace}
+table{width:100%;border-collapse:collapse;font-size:12px}
 th{background:var(--surface3);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px}
-th,td{border-bottom:1px solid var(--border);padding:9px 10px;text-align:left}
+th,td{border-bottom:1px solid var(--border);padding:9px;text-align:left}
 td:first-child{color:var(--accent);font-weight:900}
-td input{padding:6px 8px;font-size:12px;border-radius:8px}
-.bareme-scroll{max-height:500px;overflow-y:auto;border-radius:10px;scrollbar-width:thin;scrollbar-color:var(--accent) var(--surface3)}
+td input{padding:7px;font-size:12px;border-radius:8px}
+.bareme-scroll{max-height:400px;overflow-y:auto;border-radius:10px;scrollbar-width:thin;scrollbar-color:var(--accent) var(--surface3)}
 .bareme-scroll::-webkit-scrollbar{width:6px}
 .bareme-scroll::-webkit-scrollbar-track{background:var(--surface3);border-radius:3px}
 .bareme-scroll::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
 .hist{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;justify-content:space-between;align-items:center}
 .hist .v{color:var(--accent);font-size:20px;font-weight:900}
-canvas{width:100% !important;height:260px !important;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:block}
-.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:#020817;color:var(--text);border:1px solid var(--accent);padding:11px 20px;border-radius:12px;display:none;max-width:420px;font-size:12px;z-index:999;text-align:center;pointer-events:none;letter-spacing:.5px}
+nav{display:flex;background:var(--surface);border-top:1px solid var(--border);padding:8px 0 14px;flex-shrink:0}
+nav button{flex:1;background:transparent;border:0;color:var(--muted);font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button .nav-icon{font-size:18px}
+nav button.active{color:var(--accent);font-weight:900}
+canvas{width:100% !important;height:220px !important;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:block}
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#020817;color:var(--text);border:1px solid var(--accent);padding:11px 18px;border-radius:12px;display:none;max-width:340px;font-size:12px;z-index:99;text-align:center;pointer-events:none;letter-spacing:.5px}
 .badge2{display:inline-block;padding:4px 9px;border-radius:20px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--border);margin:2px}
 .badge2.ok{color:var(--accent);border-color:var(--accent);background:rgba(0,200,150,.10)}
 .badge2.warn{color:var(--warn);border-color:var(--warn);background:rgba(245,166,35,.10)}
@@ -158,13 +85,6 @@ canvas{width:100% !important;height:260px !important;background:var(--surface2);
 .kpi-title{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
 .kpi-value{font-size:14px;font-weight:900;margin-top:4px;color:var(--text);line-height:1.4}
 .sep{height:1px;background:var(--border);margin:12px 0}
-
-/* PWA install banner */
-#installBanner{display:none;position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--accent);border-radius:14px;padding:14px 18px;z-index:999;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
-#installBanner p{margin:0 0 10px;font-size:12px;color:var(--text);line-height:1.5}
-#installBanner .btnrow{justify-content:flex-end}
-
-/* Light theme */
 body.light{
   --bg:#f3f4f6;--surface:#ffffff;--surface2:#f8fafc;--surface3:#e5e7eb;
   --accent:#00A878;--accent2:#2563eb;--text:#111827;--muted:#6b7280;
@@ -174,24 +94,167 @@ body.light{
 body.light .app{background:var(--bg)}
 body.light .numpad button{background:var(--surface2)}
 body.light canvas{background:var(--surface2)}
-body.light .sidebar{background:var(--surface)}
 
-/* ── RESPONSIVE MOBILE (≤768px) ── */
-@media(max-width:768px){
-  body{overflow:auto;height:auto}
-  .app{height:auto;min-height:100vh}
-  .app-body{flex-direction:column}
-  .sidebar{display:none}
-  .main-area{overflow:visible}
-  main{padding:14px;overflow:visible}
-  nav{display:flex;background:var(--surface);border-top:1px solid var(--border);padding:8px 0 14px;flex-shrink:0;position:sticky;bottom:0;z-index:10}
-  nav button{flex:1;background:transparent;border:0;color:var(--muted);font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:3px}
+/* Bouton d'installation PWA dans la sidebar (caché par défaut, montré sur desktop) */
+.sidebar-foot{display:none}
+.install-btn{display:none}
+
+/* ─── RESPONSIVE : TABLETTE ───────────────────────────────────────────────── */
+@media (min-width: 760px) and (max-width: 1023px){
+  .app{max-width:960px;border-left:1px solid var(--border);border-right:1px solid var(--border)}
+  main{padding:22px 26px}
+  #home.screen.active,
+  #new.screen.active,
+  #quality.screen.active{flex-direction:row;flex-wrap:wrap;align-items:flex-start}
+  #home.screen.active > *,
+  #quality.screen.active > *{flex:1 1 calc(50% - 7px);min-width:280px}
+  #home.screen.active > .chips,
+  #home.screen.active > .total,
+  .screen.active > .full-span{flex-basis:100%;width:100%}
+  .comp .big{font-size:30px}
+  canvas{height:300px !important}
+  .bareme-scroll{max-height:560px}
+  .numpad{max-width:360px;margin:0 auto}
+  #newCompFields,#certCompFields{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  #certCompFields .cert-row{margin-bottom:0}
+}
+
+/* ─── RESPONSIVE : PC / DESKTOP (sidebar à gauche) ────────────────────────── */
+@media (min-width: 1024px){
+  body{background:var(--bg)}
+  .app{
+    max-width:none;
+    width:100%;
+    min-height:100vh;
+    display:grid;
+    grid-template-columns:250px 1fr;
+    grid-template-rows:100vh;
+  }
+  /* La barre d'état du haut est masquée sur desktop (intégrée ailleurs) */
+  .app > .status{display:none}
+
+  /* NAV devient la sidebar verticale à gauche */
+  nav{
+    grid-row:1;
+    grid-column:1;
+    flex-direction:column;
+    align-items:stretch;
+    background:var(--surface);
+    border-top:0;
+    border-right:1px solid var(--border);
+    padding:0;
+    height:100vh;
+    position:sticky;
+    top:0;
+    overflow-y:auto;
+  }
+  /* En-tête de la sidebar (logo) */
+  nav::before{
+    content:"⛽  JAUGE-PRO";
+    display:block;
+    padding:20px 18px 6px;
+    color:var(--accent);
+    font-size:15px;
+    font-weight:900;
+    letter-spacing:2px;
+  }
+  nav::after{
+    content:"Jaugeage professionnel";
+    display:block;
+    padding:0 18px 18px;
+    color:var(--muted);
+    font-size:10px;
+    letter-spacing:1px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:8px;
+  }
+  nav button{
+    flex:none;
+    flex-direction:row;
+    justify-content:flex-start;
+    gap:12px;
+    font-size:12px;
+    padding:13px 18px;
+    text-align:left;
+    border-left:3px solid transparent;
+    border-radius:0;
+  }
   nav button .nav-icon{font-size:18px}
-  nav button.active{color:var(--accent);font-weight:900}
-  .desktop-cols,.desktop-cols-3{grid-template-columns:1fr}
-  .desktop-wide{grid-column:auto}
-  .toast{bottom:80px}
-  #installBanner{bottom:70px;right:10px;left:10px;max-width:none}
+  nav button.active{
+    color:var(--accent);
+    background:rgba(0,200,150,.08);
+    border-left-color:var(--accent);
+  }
+  /* Pied de sidebar : thème, installer, réglages */
+  .sidebar-foot{
+    display:flex;
+    gap:8px;
+    padding:14px 16px;
+    margin-top:auto;
+    border-top:1px solid var(--border);
+  }
+  .sidebar-foot .iconbtn{width:38px;height:38px}
+  .install-btn{
+    display:flex !important;
+    align-items:center;justify-content:center;
+    width:38px;height:38px;
+    background:var(--accent2);border:0;border-radius:9px;
+    color:#fff;font-size:18px;cursor:pointer;
+  }
+
+  /* Le contenu (header + main) occupe la 2e colonne */
+  header{
+    position:fixed;
+    left:250px;right:0;top:0;
+    z-index:10;
+    height:auto;
+  }
+  main{
+    grid-row:1;
+    grid-column:2;
+    margin-top:66px;  /* sous le header fixe */
+    padding:24px 34px;
+    height:calc(100vh - 66px);
+    overflow-y:auto;
+  }
+
+  /* Mise en colonnes des écrans riches */
+  #home.screen.active,
+  #new.screen.active,
+  #quality.screen.active{flex-direction:row;flex-wrap:wrap;align-items:flex-start}
+  #home.screen.active > *,
+  #quality.screen.active > *{flex:1 1 calc(33.333% - 12px);min-width:300px}
+  #home.screen.active > .chips,
+  #home.screen.active > .total,
+  .screen.active > .full-span{flex-basis:100%;width:100%}
+
+  #newCompFields{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  #certCompFields{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  #certCompFields .cert-row{margin-bottom:0}
+
+  .comp .big{font-size:30px}
+  canvas{height:340px !important}
+  .bareme-scroll{max-height:60vh}
+  .numpad{max-width:380px;margin:0 auto}
+
+  /* Toast au-dessus de tout, centré sur la zone contenu */
+  .toast{bottom:32px}
+}
+
+@media (min-width: 1500px){
+  .app{grid-template-columns:280px 1fr}
+  header{left:280px}
+  main{padding:28px 60px}
+}
+
+/* Très petit téléphone */
+@media (max-width: 360px){
+  main{padding:11px}
+  .card{padding:11px}
+  .big{font-size:22px}
+  .total-value{font-size:26px}
+  .result .value{font-size:34px}
+  .numpad button{padding:13px;font-size:19px}
 }
 </style>
 </head>
@@ -199,58 +262,21 @@ body.light .sidebar{background:var(--surface)}
 <div class="app">
   <div class="status">
     <span id="clock">--:--</span>
-    <span>JAUGE-PRO</span>
+    <span>JAUGE-PRO v1.0</span>
     <span id="offlineStatus">⚡ Hors-ligne</span>
   </div>
+  <header>
+    <div>
+      <div class="title" id="headTitle">Jaugeage</div>
+      <div class="subtitle" id="headSub">Creux → Volume</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="iconbtn" onclick="toggleTheme()" id="themeBtn" title="Thème">☀</button>
+      <button class="iconbtn" onclick="toast('Données sauvegardées localement. Export CSV disponible dans Barèmes.')" title="Info">⚙</button>
+    </div>
+  </header>
 
-  <div class="app-body">
-    <!-- SIDEBAR (desktop uniquement) -->
-    <aside class="sidebar">
-      <div class="sidebar-logo">
-        <div class="title">⛽ Jauge-Pro</div>
-        <div class="subtitle">Jaugeage professionnel</div>
-      </div>
-      <nav class="sidebar-nav">
-        <button class="active" onclick="screen('home',this)">
-          <span class="nav-icon">⛽</span>Jaugeage
-        </button>
-        <button onclick="screen('new',this)">
-          <span class="nav-icon">➕</span>Nouvelle citerne
-        </button>
-        <button onclick="screen('measure',this)">
-          <span class="nav-icon">📏</span>Saisie creux
-        </button>
-        <button onclick="screen('bareme',this)">
-          <span class="nav-icon">📊</span>Barèmes
-        </button>
-        <button onclick="screen('quality',this)">
-          <span class="nav-icon">✅</span>Contrôle qualité
-        </button>
-        <button onclick="screen('history',this)">
-          <span class="nav-icon">🕘</span>Historique
-        </button>
-      </nav>
-      <div class="sidebar-footer">
-        <button class="iconbtn" onclick="toggleTheme()" id="themeBtn" title="Thème clair/sombre">☀</button>
-        <button class="iconbtn" onclick="showInstallHelp()" title="Installer l'application">📲</button>
-        <button class="iconbtn" onclick="toast('Données sauvegardées localement. Export CSV disponible dans Barèmes.')" title="Info">⚙</button>
-      </div>
-    </aside>
-
-    <!-- ZONE PRINCIPALE -->
-    <div class="main-area">
-      <header>
-        <div>
-          <div class="title" id="headTitle">Jaugeage</div>
-          <div class="subtitle" id="headSub">Creux → Volume</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span id="offlineStatus2" style="font-size:10px;color:var(--muted)">⚡</span>
-          <button class="iconbtn" onclick="toggleTheme()" style="display:none" id="themeBtnMobile">☀</button>
-        </div>
-      </header>
-
-      <main>
+  <main>
     <!-- ÉCRAN 1: JAUGEAGE -->
     <section id="home" class="screen active">
       <div class="card">
@@ -283,7 +309,7 @@ body.light .sidebar{background:var(--surface)}
 
     <!-- ÉCRAN 2: NOUVELLE CITERNE -->
     <section id="new" class="screen">
-      <div class="card">
+      <div class="card full-span">
         <div class="card-title">Créer une citerne</div>
         <label>Nom / Référence</label>
         <input id="newName" placeholder="ex: TC-01">
@@ -340,7 +366,7 @@ body.light .sidebar{background:var(--surface)}
         <div style="font-size:11px;color:var(--muted);line-height:1.6">
           Intégration numérique depuis le point de référence <b style="color:var(--accent)">(C, Vn)</b>, en utilisant la largeur de la section circulaire calibrée sur Vcm.<br>
           Correction d'extrémité pour que <b style="color:var(--accent)">V(0) = Vt</b> exactement.<br>
-          Précision typique : <b style="color:var(--accent2)">±0.2%</b> sur les 30 premiers cm.
+          Si Vcm est absent, il est estimé depuis la table empirique (selon Vn) ou par géométrie pure.
         </div>
       </div>
       <div class="card">
@@ -524,43 +550,32 @@ body.light .sidebar{background:var(--surface)}
     </section>
   </main>
 
-      </main>
-
-      <!-- NAV MOBILE (visible uniquement sur mobile) -->
-      <nav>
-        <button class="active" onclick="screen('home',this)">
-          <span class="nav-icon">⛽</span>Jaugeage
-        </button>
-        <button onclick="screen('new',this)">
-          <span class="nav-icon">➕</span>Nouvelle
-        </button>
-        <button onclick="screen('measure',this)">
-          <span class="nav-icon">📏</span>Saisie
-        </button>
-        <button onclick="screen('bareme',this)">
-          <span class="nav-icon">📊</span>Barèmes
-        </button>
-        <button onclick="screen('quality',this)">
-          <span class="nav-icon">✅</span>Contrôle
-        </button>
-        <button onclick="screen('history',this)">
-          <span class="nav-icon">🕘</span>Historique
-        </button>
-      </nav>
-    </div><!-- .main-area -->
-  </div><!-- .app-body -->
-</div><!-- .app -->
-
-<!-- PWA Install Banner -->
-<div id="installBanner">
-  <p>📲 <b style="color:var(--accent)">Installer Jaugeage Pro</b><br>
-  Ouvrez ce fichier dans <b>Chrome</b> ou <b>Edge</b>, puis cliquez sur l'icône ⊕ dans la barre d'adresse pour installer l'application sur votre bureau Windows.</p>
-  <div class="btnrow">
-    <button class="btn secondary" style="font-size:11px" onclick="document.getElementById('installBanner').style.display='none'">Plus tard</button>
-    <button class="btn" style="font-size:11px" id="installBtn">Installer</button>
-  </div>
+  <nav>
+    <button class="active" onclick="screen('home',this)">
+      <span class="nav-icon">⛽</span>Jaugeage
+    </button>
+    <button onclick="screen('new',this)">
+      <span class="nav-icon">➕</span>Nouvelle
+    </button>
+    <button onclick="screen('measure',this)">
+      <span class="nav-icon">📏</span>Saisie
+    </button>
+    <button onclick="screen('bareme',this)">
+      <span class="nav-icon">📊</span>Barèmes
+    </button>
+    <button onclick="screen('quality',this)">
+      <span class="nav-icon">✅</span>Contrôle
+    </button>
+    <button onclick="screen('history',this)">
+      <span class="nav-icon">🕘</span>Historique
+    </button>
+    <div class="sidebar-foot">
+      <button class="iconbtn themeBtnCls" onclick="toggleTheme()" title="Thème">☀</button>
+      <button class="install-btn" id="installBtn" onclick="installApp()" title="Installer l'application">⬇</button>
+      <button class="iconbtn" onclick="toast('Données sauvegardées localement. Export CSV disponible dans Barèmes.')" title="Réglages">⚙</button>
+    </div>
+  </nav>
 </div>
-
 <div id="toast" class="toast"></div>
 
 <script>
@@ -634,16 +649,12 @@ function render(){
     let expanded=chipsEl.dataset.expanded==='1';
     let visible=expanded?allChips:allChips.slice(0,4);
     chipsEl.innerHTML=visible.join('')+
-      `<span class="chip" style="border-color:var(--accent2);color:var(--accent2)" onclick="
-        let el=document.getElementById('tankChips');
-        el.dataset.expanded=el.dataset.expanded==='1'?'0':'1';render()
-      ">${expanded?'▲ Réduire':'▼ +'+( allChips.length-4)+' autres'}</span>`;
+      `<span class="chip" style="border-color:var(--accent2);color:var(--accent2)" onclick="let el=document.getElementById('tankChips');el.dataset.expanded=el.dataset.expanded==='1'?'0':'1';render()">${expanded?'▲ Réduire':'▼ +'+(allChips.length-4)+' autres'}</span>`;
   }
 
-  // Grille compartiments
+  // Grille compartiments — % basé sur le Vt réel (volume au creux=0)
   document.getElementById('compGrid').innerHTML=tank().comps.map((c,i)=>{
     let has=c.creux!==undefined,v=has?interp(c,c.creux):null;
-    // Vt réel = volume au creux=0 du barème (citerne à ras bord)
     let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
     let vt=b.length?Number(b[0][1]):c.cap;
     let p=v!==null?Math.max(0,Math.min(100,Math.round(v/vt*100))):0;
@@ -705,12 +716,11 @@ function renderMeasure(){
   document.getElementById('resultValue').textContent=v===null?'N/A':v.toLocaleString();
   document.getElementById('resultDetail').textContent=v===null?'Barème insuffisant ou vide':(tank().volUnit+' — interpolation linéaire');
   if(v!==null){
-    // Vt réel = volume au creux=0
-    let bsorted=[...comp().bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
-    let vt=bsorted.length?Number(bsorted[0][1]):comp().cap;
+    let b=[...comp().bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
+    let vt=b.length?Number(b[0][1]):comp().cap;
     let pct=Math.max(0,Math.min(100,Math.round(v/vt*100)));
-    let idx=bsorted.findIndex(p=>Number(p[0])>=Math.round(xv));
-    let delta=idx>0?Math.abs(Number(bsorted[idx-1][1])-Number(bsorted[idx]?.[1]||0)):0;
+    let idx=b.findIndex(p=>Number(p[0])>=Math.round(xv));
+    let delta=idx>0?Math.abs(Number(b[idx-1][1])-Number(b[idx]?.[1]||0)):0;
     document.getElementById('resultStats').innerHTML=`Δ ≈ ${Math.round(delta)} ${tank().volUnit}/cm | Remplissage : ${pct}% | Creux : ${typed} cm`;
   } else {
     document.getElementById('resultStats').innerHTML='Valeur hors plage du barème';
@@ -793,7 +803,7 @@ function pdfTableauBareme(doc,Y,compIdx){
   let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
   if(!b.length)return Y;
   doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(0,100,80);
-  doc.text('Compartiment '+(compIdx+1)+' — '+c.name+' (Cap. nominale : '+Math.round(c.cap).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' '+tank().volUnit+')',margin,Y);
+  doc.text('Compartiment '+(compIdx+1)+' — '+c.name+' (Cap. nominale : '+c.cap.toLocaleString()+' '+tank().volUnit+')',margin,Y);
   Y+=5;
   const colW=[22,32,18];
   const startCols=[margin,margin+72,margin+144];
@@ -879,7 +889,7 @@ function pdfCourbe(doc,Y,compIdx){
   ctx.fillStyle='#0077CC';
   b.forEach(p=>{ctx.beginPath();ctx.arc(sx(Number(p[0])),sy(Number(p[1])),5,0,7);ctx.fill();});
   ctx.fillStyle='#333';ctx.font='bold 14px Arial';ctx.textAlign='center';
-  ctx.fillText('Creux ('+tank().creuxUnit+')',pad.l+cW/2,390);
+  ctx.fillText('Creux (cm)',pad.l+cW/2,390);
   ctx.save();ctx.translate(18,pad.t+cH/2);ctx.rotate(-Math.PI/2);
   ctx.fillText('Volume ('+tank().volUnit+')',0,0);ctx.restore();
   ctx.fillStyle='#006050';ctx.font='bold 15px Arial';ctx.textAlign='center';
@@ -894,6 +904,149 @@ function pdfCourbe(doc,Y,compIdx){
 
 // ── CRÉATION CITERNE ──────────────────────────────────────────────────────────
 let _pendingBaremes = null;
+let _savedCertData = [];
+
+// ── TABLE EMPIRIQUE Vn → delta → Vcm ─────────────────────────────────────────
+// delta = V[C-2] - V[C] ≈ V[C] - V[C+2]  (variation sur 2 cm autour de C)
+// Vcm = delta / 2  (dm³/cm). delta peut être un tableau si plusieurs cas possibles.
+const VCMT_TABLE = [
+  { Vn:  1000, delta:  6 },
+  { Vn:  2000, delta: [9, 23] },
+  { Vn:  3000, delta: [12, 26] },
+  { Vn:  4000, delta: 12 },
+  { Vn:  5000, delta: [32, 40] },
+  { Vn:  6000, delta: 28 },
+  { Vn: 10000, delta: 45 },
+  { Vn: 12000, delta: 50 },
+  { Vn: 18000, delta: 76 },
+];
+
+// Retourne { vcm, source, choices } :
+//   source = 'fourni'  → Vcm donné explicitement
+//   source = 'table'   → estimé depuis la table (delta unique)
+//   source = 'choix'   → plusieurs deltas possibles, choices=[{delta,vcm},...]
+//   source = 'absent'  → Vn pas dans la table
+function resolveVcm(Vcm, Vn){
+  if(Vcm && !isNaN(Vcm) && Vcm > 0)
+    return { vcm: Vcm, source: 'fourni' };
+  let entry = VCMT_TABLE.find(e => Math.abs(e.Vn - Vn) / e.Vn <= 0.05);
+  if(!entry) return { vcm: null, source: 'absent' };
+  if(Array.isArray(entry.delta)){
+    return { vcm: null, source: 'choix', choices: entry.delta.map(d => ({ delta: d, vcm: d/2 })) };
+  }
+  return { vcm: entry.delta / 2, source: 'table' };
+}
+
+// ── ALGORITHME DE GÉNÉRATION DU BARÈME ────────────────────────────────────────
+function widthAtCreux(r_cm, creux_cm){
+  let h = 2*r_cm - creux_cm;
+  if(h <= 0 || h >= 2*r_cm) return 0;
+  return 2*Math.sqrt(Math.max(0, 2*r_cm*h - h*h));
+}
+
+function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm, controlPts){
+  if(!Vt||!Vn||!C_mm||!H_mm) return null;
+  let resolved = resolveVcm(Vcm, Vn);
+  let C_cm = C_mm / 10, H_cm = H_mm / 10, r_cm = H_cm / 2;
+  let MAX_C = 45, STEP = 0.002;
+  let withVcm = resolved.vcm !== null;
+
+  // ── MÉTHODE 0 : avec points de contrôle (spline monotone de Steffen) ──
+  // Priorité absolue : si l'utilisateur fournit des couples (creux,volume) lus
+  // sur le barème officiel, on force la courbe à passer exactement par eux.
+  let cps = (controlPts||[]).filter(p=>p[0]>=0&&p[0]<=MAX_C);
+  if(cps.length >= 1){
+    // Construire la liste des nœuds : (0,Vt) + points de contrôle.
+    // Le couple (C,Vn) n'est PAS forcé ici car Vn (capacité autorisée) ne
+    // correspond pas toujours exactement au volume réel au creux C ; les
+    // points de contrôle lus sur le barème officiel sont prioritaires.
+    let nodes = {};
+    nodes[0] = Vt;                       // point dur fiable : V(0)=Vt
+    cps.forEach(p=>{ nodes[Math.round(p[0])] = p[1]; });
+    // (C,Vn) n'est PAS ajouté quand des points de contrôle existent : Vn (capacité
+    // autorisée) peut différer du volume réel au creux C, et les points de contrôle
+    // lus sur le barème officiel définissent déjà la courbe avec fiabilité.
+    // Point à 45 si absent : estimation géométrique pour borner la courbe
+    if(nodes[MAX_C] === undefined){
+      let A_full = Math.PI*r_cm*r_cm;
+      let L_cm = (Vt*1000)/A_full;
+      let cv=Math.max(-1,Math.min(1,(r_cm-(H_cm-MAX_C))/r_cm));
+      let segA = (H_cm-MAX_C)<=0 ? 0 : r_cm*r_cm*Math.acos(cv)-(r_cm-(H_cm-MAX_C))*Math.sqrt(Math.max(0,2*r_cm*(H_cm-MAX_C)-(H_cm-MAX_C)*(H_cm-MAX_C)));
+      // Extrapolation simple : prolonger la pente du dernier intervalle connu
+      let xsK=Object.keys(nodes).map(Number).sort((a,b)=>a-b);
+      let last=xsK[xsK.length-1], prev=xsK[xsK.length-2]??0;
+      let slope=(nodes[last]-nodes[prev])/((last-prev)||1);
+      nodes[MAX_C] = Math.round(nodes[last] + slope*(MAX_C-last));
+    }
+    let xs = Object.keys(nodes).map(Number).sort((a,b)=>a-b);
+    let ys = xs.map(x=>nodes[x]);
+    let spl = steffenSpline(xs, ys);
+    let result=[];
+    for(let c2=0;c2<=MAX_C;c2++) result.push([c2, Math.max(0, Math.round(spl(c2)))]);
+    // Forcer les valeurs exactes aux nœuds connus
+    xs.forEach((x,idx)=>{ if(x>=0&&x<=MAX_C) result[x]=[x, Math.round(ys[idx])]; });
+    for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
+    return result;
+  }
+
+  // ── MÉTHODE 1 : avec Vcm (intégration calibrée) ──
+  if(withVcm){
+    let wC = widthAtCreux(r_cm, C_cm);
+    if(wC <= 0) return null;
+    let k = resolved.vcm / wC;
+    let v = Vn, c = C_cm;
+    let pts_up = [[C_cm, Vn]];
+    while(c > 0){ let step=Math.min(STEP,c); v += k*widthAtCreux(r_cm,c)*step; c-=step; pts_up.push([c,v]); }
+    v = Vn; c = C_cm;
+    let pts_down = [[C_cm, Vn]];
+    while(c < MAX_C){ let step=Math.min(STEP,MAX_C-c); v -= k*widthAtCreux(r_cm,c)*step; c+=step; pts_down.push([c,Math.max(0,v)]); }
+    let allPts = [...pts_up, ...pts_down].sort((a,b)=>a[0]-b[0]);
+    function interpAt(cx){
+      for(let i=0;i<allPts.length-1;i++){
+        let x1=allPts[i][0], x2=allPts[i+1][0];
+        if(cx>=x1&&cx<=x2){ let t=(cx-x1)/(x2-x1); return allPts[i][1]*(1-t)+allPts[i+1][1]*t; }
+      }
+      return allPts[allPts.length-1][1];
+    }
+    let raw=[];
+    for(let c2=0;c2<=MAX_C;c2++) raw.push(interpAt(c2));
+    let corrAt0 = Vt - raw[0];
+    let result=[];
+    for(let c2=0;c2<=MAX_C;c2++){
+      let corr = c2 <= C_cm ? corrAt0*(C_cm-c2)/C_cm : 0;
+      result.push([c2, Math.max(0, Math.round(raw[c2]+corr))]);
+    }
+    for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
+    return result;
+  }
+
+  // ── MÉTHODE 2 : sans Vcm (géométrie pure + 2 points durs) ──
+  let A_full = Math.PI * r_cm * r_cm;
+  let L_cm = (Vt * 1000) / A_full;
+  function segArea(r, h_liq){
+    if(h_liq<=0) return 0;
+    if(h_liq>=2*r) return Math.PI*r*r;
+    let cv=Math.max(-1,Math.min(1,(r-h_liq)/r));
+    return r*r*Math.acos(cv)-(r-h_liq)*Math.sqrt(Math.max(0,2*r*h_liq-h_liq*h_liq));
+  }
+  let raw=[];
+  for(let c2=0;c2<=MAX_C;c2++){
+    let vol = Math.round(L_cm * segArea(r_cm, H_cm - c2) / 1000);
+    raw.push(Math.max(0, vol));
+  }
+  let c_ref = Math.round(C_cm);
+  let corr0 = Vt - raw[0];
+  let corrC = Vn - (raw[c_ref]||raw[raw.length-1]);
+  let result=[];
+  for(let c2=0;c2<=MAX_C;c2++){
+    let corr;
+    if(c2 <= c_ref){ let t = c_ref>0 ? c2/c_ref : 0; corr = corr0*(1-t) + corrC*t; }
+    else corr = 0;
+    result.push([c2, Math.max(0, Math.round(raw[c2]+corr))]);
+  }
+  for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
+  return result;
+}
 
 function buildNewCompFields(){
   let nb=parseInt(document.getElementById('nbComp')?.value||'4');if(nb<1)nb=1;if(nb>12)nb=12;
@@ -913,57 +1066,27 @@ function buildNewCompFields(){
   }
   buildCertCompFields();
   _pendingBaremes = null;
-  document.getElementById('baremePreview').style.display='none';
+  let bp=document.getElementById('baremePreview'); if(bp) bp.style.display='none';
 }
 
 function syncCertNames(){
   let names=[...document.querySelectorAll('.newCompName')].map(i=>i.value||'?');
-  [...document.querySelectorAll('.certRowTitle')].forEach((el,i)=>{
-    el.textContent='Comp. '+(i+1)+' — '+(names[i]||'C'+(i+1));
-  });
-}
-
-function addCtrlPt(compIdx){
-  let box=document.querySelector('.ctrl-pts-list-'+compIdx);
-  if(!box)return;
-  let id='cp_'+compIdx+'_'+Date.now();
-  let row=document.createElement('div');
-  row.id=id;
-  row.style.cssText='display:flex;gap:6px;align-items:center';
-  row.innerHTML=`
-    <div style="flex:1"><label style="font-size:9px">Creux (cm)</label>
-      <input type="number" min="0" max="45" step="1" class="cp-creux" placeholder="ex: 10" style="padding:6px;font-size:12px"></div>
-    <div style="flex:1"><label style="font-size:9px">Volume (dm³)</label>
-      <input type="number" min="0" class="cp-vol" placeholder="ex: 10155" style="padding:6px;font-size:12px"></div>
-    <button class="btn danger" style="padding:4px 8px;font-size:10px;margin-top:14px" onclick="document.getElementById('${id}').remove()">✕</button>`;
-  box.appendChild(row);
-}
-
-function getCtrlPts(compIdx){
-  // Récupère tous les points de contrôle saisis pour un compartiment
-  let rows=[...document.querySelectorAll('.ctrl-pts-list-'+compIdx+' > div')];
-  let pts=[];
-  rows.forEach(r=>{
-    let c=parseFloat(r.querySelector('.cp-creux')?.value);
-    let v=parseFloat(r.querySelector('.cp-vol')?.value);
-    if(!isNaN(c)&&!isNaN(v)&&c>=0&&c<=45) pts.push([c,v]);
-  });
-  return pts.sort((a,b)=>a[0]-b[0]);
+  [...document.querySelectorAll('.certRowTitle')].forEach((el,i)=>{ el.textContent='Comp. '+(i+1)+' — '+(names[i]||'C'+(i+1)); });
 }
 
 function buildCertCompFields(){
   let nb=parseInt(document.getElementById('nbComp')?.value||'4');if(nb<1)nb=1;if(nb>12)nb=12;
   let box=document.getElementById('certCompFields');if(!box)return;
   let prev=[...box.querySelectorAll('.cert-row')].map(r=>({
-    C:r.querySelector('.certC')?.value,
-    H:r.querySelector('.certH')?.value,
-    Vcm:r.querySelector('.certVcm')?.value,
-    Vt:r.querySelector('.certVt')?.value,
+    C:r.querySelector('.certC')?.value, H:r.querySelector('.certH')?.value,
+    Vcm:r.querySelector('.certVcm')?.value, Vt:r.querySelector('.certVt')?.value,
+    pts:readCtrlRows(r),
   }));
   box.innerHTML='';
   let names=[...document.querySelectorAll('.newCompName')].map(i=>i.value||'?');
   for(let i=0;i<nb;i++){
-    box.innerHTML+=`<div class="cert-row" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">
+    let savedPts=prev[i]?.pts||[];
+    box.innerHTML+=`<div class="cert-row" data-idx="${i}" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">
       <div class="certRowTitle" style="font-size:10px;font-weight:900;color:var(--accent);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px">Comp. ${i+1} — ${names[i]||'C'+(i+1)}</div>
       <div class="grid">
         <div><label>Distance creux C (mm)</label><input class="certC" type="number" min="0" value="${prev[i]?.C||''}" placeholder="ex: 171"></div>
@@ -973,294 +1096,80 @@ function buildCertCompFields(){
         <div><label>Vol. centim. moy. V (dm³/cm) <span style="color:var(--accent);font-size:9px">optionnel</span></label><input class="certVcm" type="number" step="0.01" value="${prev[i]?.Vcm||''}" placeholder="ex: 22.85 (optionnel)"></div>
         <div><label>Capacité totale Vt (dm³)</label><input class="certVt" type="number" min="0" value="${prev[i]?.Vt||''}" placeholder="ex: 10265"></div>
       </div>
-      <div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px">
-        <div style="font-size:10px;color:var(--accent2);font-weight:900;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">
-          Points de contrôle <span style="color:var(--accent);font-size:9px;text-transform:none;letter-spacing:0">optionnels — améliorent la précision</span>
+      <div style="border-top:1px dashed var(--border);margin-top:10px;padding-top:8px">
+        <div style="font-size:10px;font-weight:900;color:var(--accent2);text-transform:uppercase;letter-spacing:1px">Points de contrôle <span style="color:var(--muted);font-weight:400;text-transform:none">optionnels — améliorent la précision</span></div>
+        <div style="font-size:10px;color:var(--muted);margin:5px 0 8px;line-height:1.5">Ajoute des paires (creux cm, volume) tirées du barème officiel papier. Plus tu en mets, plus le barème calculé sera proche de la réalité.</div>
+        <div class="ctrlPtsList">
+          ${savedPts.map(p=>ctrlRowHTML(p[0],p[1])).join('')}
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.5">
-          Ajoute des paires (creux cm, volume) tirées du barème officiel papier.<br>
-          Plus tu en mets, plus le barème calculé sera proche de la réalité.
-        </div>
-        <div class="ctrl-pts-list-${i}" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-        <button class="btn secondary" style="font-size:11px;padding:6px 12px" onclick="addCtrlPt(${i})">+ Ajouter un point</button>
+        <button class="btn secondary" style="margin-top:6px;font-size:11px;padding:7px 12px" onclick="addCtrlRow(this)">+ Ajouter un point</button>
       </div>
     </div>`;
   }
+  // Si aucun point sauvegardé, ajouter une ligne vide par compartiment
+  [...box.querySelectorAll('.ctrlPtsList')].forEach(list=>{
+    if(list.children.length===0) list.innerHTML=ctrlRowHTML('','');
+  });
 }
 
-// ── TABLE EMPIRIQUE Vn → delta → Vcm ─────────────────────────────────────────
-// Alimentée progressivement selon les certificats réels observés.
-// delta = V[C-2] - V[C]  ≈  V[C] - V[C+2]  (variation sur 2 cm autour de C)
-// Vcm = delta / 2  (dm³/cm)
-// À compléter avec d'autres Vn quand les certificats correspondants seront disponibles.
-const VCMT_TABLE = [
-  { Vn:  1000, delta:  6 },
-  { Vn:  2000, delta: [9, 23] },
-  { Vn:  3000, delta: [12, 26] },
-  { Vn:  4000, delta: 12 },
-  { Vn:  5000, delta: [32, 40] },
-  { Vn:  6000, delta: 28 },
-  { Vn: 10000, delta: 45 },
-  { Vn: 12000, delta: 50 },
-  { Vn: 18000, delta: 76 },
-];
-
-// Retourne { vcm, source, choices } :
-//   source = 'fourni'   → Vcm donné explicitement
-//   source = 'table'    → estimé depuis la table (delta unique)
-//   source = 'choix'    → plusieurs deltas possibles, choices=[{delta,vcm},...] à présenter
-//   source = 'absent'   → Vn pas encore dans la table
-function resolveVcm(Vcm, Vn){
-  if(Vcm && !isNaN(Vcm) && Vcm > 0)
-    return { vcm: Vcm, source: 'fourni' };
-  let entry = VCMT_TABLE.find(e => Math.abs(e.Vn - Vn) / e.Vn <= 0.05);
-  if(!entry) return { vcm: null, source: 'absent' };
-  if(Array.isArray(entry.delta)){
-    return {
-      vcm: null,
-      source: 'choix',
-      choices: entry.delta.map(d => ({ delta: d, vcm: d / 2 }))
-    };
-  }
-  return { vcm: entry.delta / 2, source: 'table' };
+// HTML d'une ligne de point de contrôle (creux / volume / supprimer)
+function ctrlRowHTML(cx, v){
+  return `<div class="ctrl-pt-row" style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:6px">
+    <div><label style="font-size:9px">Creux (cm)</label><input class="ctrlC" type="number" min="0" max="45" step="1" value="${cx}" placeholder="ex: 10"></div>
+    <div><label style="font-size:9px">Volume (dm³)</label><input class="ctrlV" type="number" min="0" value="${v}" placeholder="ex: 10155"></div>
+    <button class="btn danger" style="padding:8px 11px;font-size:11px;margin-bottom:1px" onclick="removeCtrlRow(this)">✕</button>
+  </div>`;
 }
 
-function widthAtCreux(r_cm, creux_cm){
-  let h = 2*r_cm - creux_cm;
-  if(h <= 0 || h >= 2*r_cm) return 0;
-  return 2*Math.sqrt(Math.max(0, 2*r_cm*h - h*h));
+function addCtrlRow(btn){
+  let list=btn.parentElement.querySelector('.ctrlPtsList');
+  list.insertAdjacentHTML('beforeend', ctrlRowHTML('',''));
 }
 
-function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm, ctrlPts){
-  // Vcm est optionnel — résolution automatique via table empirique si absent.
-  // ctrlPts : [[creux_cm, volume], ...] — points intermédiaires connus du barème papier
-  if(!Vt||!Vn||!C_mm||!H_mm) return null;
-  let resolved = resolveVcm(Vcm, Vn);
-  let C_cm = C_mm / 10;
-  let H_cm = H_mm / 10;
-  let r_cm = H_cm / 2;
-  let MAX_C = 45;
-  let STEP = 0.002;
-  let withVcm = resolved.vcm !== null;
-
-  // ── MÉTHODE PRIORITAIRE : spline monotone sur points de contrôle ─────────────
-  let extraPts = Array.isArray(ctrlPts) ? ctrlPts.filter(p=>!isNaN(p[0])&&!isNaN(p[1])&&p[0]>=0&&p[0]<=MAX_C) : [];
-  if(extraPts.length > 0){
-    // Assembler tous les points connus : (0,Vt), (C_cm,Vn), points de contrôle, (45, estim)
-    let map=new Map([[0,Vt],[C_cm,Vn]]);
-    extraPts.forEach(p=>map.set(p[0],p[1]));
-    // Estimation géométrique à 45cm si non fournie
-    if(!map.has(45)){
-      let Afull=Math.PI*r_cm*r_cm, Lcm=Vt*1000/Afull;
-      function segG(r,h){if(h<=0)return 0;if(h>=2*r)return Math.PI*r*r;let cv=Math.max(-1,Math.min(1,(r-h)/r));return r*r*Math.acos(cv)-(r-h)*Math.sqrt(Math.max(0,2*r*h-h*h));}
-      map.set(45, Math.max(0, Math.round(Lcm*segG(r_cm,H_cm-45)/1000)));
-    }
-    let knownPts=[...map.entries()].map(e=>[e[0],e[1]]).sort((a,b)=>a[0]-b[0]);
-    let xs=knownPts.map(p=>p[0]), ys=knownPts.map(p=>p[1]);
-
-    // Interpolation de Steffen (spline cubique monotone) — passe exactement par tous les points
-    function steffenSpline(xs, ys){
-      let n=xs.length;
-      let h=[], s=[], m=[];
-      for(let i=0;i<n-1;i++){h.push(xs[i+1]-xs[i]);s.push((ys[i+1]-ys[i])/h[i]);}
-      m.push(s[0]);
-      for(let i=1;i<n-1;i++){
-        if(s[i-1]*s[i]<=0){m.push(0);}
-        else{let pm=(s[i-1]+s[i])/2,lim=2*Math.min(Math.abs(s[i-1]),Math.abs(s[i]));m.push(Math.sign(pm)*Math.min(Math.abs(pm),lim));}
-      }
-      m.push(s[n-2]);
-      let segs=[];
-      for(let i=0;i<n-1;i++){
-        let a=ys[i],b=m[i],c=(3*s[i]-2*m[i]-m[i+1])/h[i],d=(m[i]+m[i+1]-2*s[i])/(h[i]*h[i]);
-        segs.push({x0:xs[i],h:h[i],a,b,c,d});
-      }
-      return x=>{
-        if(x<=xs[0])return ys[0];if(x>=xs[n-1])return ys[n-1];
-        let sg=segs.find(s=>x>=s.x0&&x<s.x0+s.h)||segs[segs.length-1];
-        let dx=x-sg.x0;return sg.a+sg.b*dx+sg.c*dx*dx+sg.d*dx*dx*dx;
-      };
-    }
-
-    let spl=steffenSpline(xs,ys);
-
-    // Trouver le dernier point de contrôle réel (hors point estimé à 45)
-    let lastRealX = Math.max(...knownPts.filter(p=>p[0]<45).map(p=>p[0]));
-    let lastRealY = knownPts.find(p=>p[0]===lastRealX)?.[1] ?? Math.round(spl(lastRealX));
-
-    // ── EXTRAPOLATION HERMITE au-delà du dernier point réel ──────────────────
-    // Spline de Hermite entre (lastRealX, lastRealY) et (45, V45_geo)
-    // avec pente connue en lastRealX et pente théorique en 45.
-    function hermiteExtrap(x0, y0, x1, y1, m0, m1){
-      // Retourne une fonction d'évaluation de la spline Hermite cubique
-      let dt = x1 - x0;
-      if(dt <= 0) return ()=>y1;
-      return function(x){
-        let t = (x - x0) / dt;
-        if(t <= 0) return y0;
-        if(t >= 1) return y1;
-        let h00 = 2*t*t*t - 3*t*t + 1;
-        let h10 = t*t*t - 2*t*t + t;
-        let h01 = -2*t*t*t + 3*t*t;
-        let h11 = t*t*t - t*t;
-        return h00*y0 + h10*m0*dt + h01*y1 + h11*m1*dt;
-      };
-    }
-
-    // Pente au dernier point réel : moyenne sur les 3 derniers segments connus
-    // en excluant les valeurs aberrantes (> 3× la médiane des pentes)
-    let refPts = knownPts.filter(p=>p[0]<=lastRealX).slice(-5);
-    let pentes = [];
-    for(let i=1;i<refPts.length;i++){
-      let dp = (refPts[i][1]-refPts[i-1][1])/(refPts[i][0]-refPts[i-1][0]);
-      pentes.push(dp);
-    }
-    // Médiane des pentes
-    let sortedP = [...pentes].sort((a,b)=>a-b);
-    let medP = sortedP[Math.floor(sortedP.length/2)];
-    // Exclure les pentes > 2.5× la médiane en valeur absolue
-    let goodP = pentes.filter(p=>Math.abs(p)<=2.5*Math.abs(medP));
-    // Pondération : plus de poids aux derniers segments
-    let wts = goodP.map((_,i)=>i+1);
-    let wSum = wts.reduce((a,b)=>a+b,0);
-    let pente_last = goodP.reduce((s,p,i)=>s+p*wts[i],0) / wSum;
-
-    // Pente théorique en cm=45 (bas du cylindre)
-    let wC_ref = widthAtCreux(r_cm, C_cm);
-    let k_ref = (resolved.vcm || (Vt-Vn)/(C_cm||1)) / (wC_ref||1);
-    let pente_45 = -k_ref * widthAtCreux(r_cm, 45);
-
-    // Point géométrique à 45cm (déjà calculé dans knownPts)
-    let V45 = knownPts.find(p=>p[0]===45)?.[1] ?? Math.round(spl(45));
-
-    let hermite = lastRealX < MAX_C - 1
-      ? hermiteExtrap(lastRealX, lastRealY, 45, V45, pente_last, pente_45)
-      : null;
-
-    let result=[];
-    for(let c=0;c<=MAX_C;c++){
-      let v;
-      if(c <= lastRealX){
-        v = Math.max(0, Math.round(spl(c)));
-      } else if(hermite){
-        v = Math.max(0, Math.round(hermite(c)));
-      } else {
-        v = Math.max(0, Math.round(spl(c)));
-      }
-      result.push([c, v]);
-    }
-    for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
-    return result;
-  }
-
-  // ── ALPHA ADAPTATIF ────────────────────────────────────────────────────────
-  // Facteur de courbure dans la zone 0→C basé sur (Vt-Vn).
-  // Plus Vt-Vn est grand (dômes importants), plus la zone haute est plate.
-  // Calibré sur 9 compartiments réels de 12 000 L :
-  // alpha = max(0, -0.008641 × (Vt-Vn) + 3.868)
-  let alpha = Math.max(0, -0.008641*(Vt-Vn) + 3.868);
-
-  // Dans la zone 0→C, la pente est modulée par (c/C)^alpha
-  function kLocal(k, c){
-    if(c <= 0) return 0;
-    if(alpha === 0 || c >= C_cm) return k;
-    let ratio = c / C_cm;
-    return ratio > 0 ? k * Math.pow(ratio, alpha) : 0;
-  }
-
-  // ── MÉTHODE 1 : avec Vcm (intégration calibrée) ────────────────────────────
-  if(withVcm){
-    let wC = widthAtCreux(r_cm, C_cm);
-    if(wC <= 0) return null;
-    let k = resolved.vcm / wC;
-
-    // Intégration vers creux=0 avec alpha
-    let v = Vn, c = C_cm;
-    let pts_up = [[C_cm, Vn]];
-    while(c > 0){
-      let step = Math.min(STEP, c);
-      let mid = c - step/2;
-      v += kLocal(k, mid) * widthAtCreux(r_cm, mid) * step;
-      c -= step;
-      pts_up.push([c, v]);
-    }
-    pts_up.push([0, v]);
-
-    // Intégration vers creux=45 — pente normale au-delà de C
-    v = Vn; c = C_cm;
-    let pts_down = [[C_cm, Vn]];
-    while(c < MAX_C){
-      let step = Math.min(STEP, MAX_C - c);
-      let mid = c + step/2;
-      v -= k * widthAtCreux(r_cm, mid) * step;
-      c += step;
-      pts_down.push([c, Math.max(0, v)]);
-    }
-
-    // Fusion et interpolation aux entiers
-    let allPts = [...pts_up, ...pts_down].sort((a,b)=>a[0]-b[0]);
-    function interpAt(cx){
-      for(let i=0;i<allPts.length-1;i++){
-        let x1=allPts[i][0], x2=allPts[i+1][0];
-        if(x2-x1 < 1e-9) continue;
-        if(cx>=x1&&cx<=x2){ let t=(cx-x1)/(x2-x1); return allPts[i][1]*(1-t)+allPts[i+1][1]*t; }
-      }
-      return allPts[allPts.length-1][1];
-    }
-    let raw=[];
-    for(let c2=0;c2<=MAX_C;c2++) raw.push(interpAt(c2));
-    // Correction affine : V(0) = Vt exactement
-    let corrAt0 = Vt - raw[0];
-    let result=[];
-    for(let c2=0;c2<=MAX_C;c2++){
-      let corr = c2 <= C_cm ? corrAt0*(C_cm-c2)/C_cm : 0;
-      result.push([c2, Math.max(0, Math.round(raw[c2]+corr))]);
-    }
-    for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
-    return result;
-  }
-
-  // ── MÉTHODE 2 : sans Vcm (géométrie pure + 2 points durs) ──────────────────
-  let A_full = Math.PI * r_cm * r_cm;
-  let L_cm = (Vt * 1000) / A_full;
-
-  function segArea(r, h_liq){
-    if(h_liq<=0) return 0;
-    if(h_liq>=2*r) return Math.PI*r*r;
-    let cv=Math.max(-1,Math.min(1,(r-h_liq)/r));
-    return r*r*Math.acos(cv)-(r-h_liq)*Math.sqrt(Math.max(0,2*r*h_liq-h_liq*h_liq));
-  }
-
-  let raw=[];
-  for(let c2=0;c2<=MAX_C;c2++){
-    let h_liq = H_cm - c2;
-    let vol = Math.round(L_cm * segArea(r_cm, h_liq) / 1000);
-    raw.push(Math.max(0, vol));
-  }
-
-  let c_ref = Math.round(C_cm);
-  let corr0  = Vt - raw[0];
-  let corrC  = Vn - (raw[c_ref]||raw[raw.length-1]);
-
-  let result=[];
-  for(let c2=0;c2<=MAX_C;c2++){
-    let corr;
-    if(c2 <= c_ref){
-      // Interpolation linéaire entre correction en 0 et correction en C_cm
-      let t = c_ref > 0 ? c2/c_ref : 0;
-      corr = corr0*(1-t) + corrC*t;
-    } else {
-      // Au-delà de C : on laisse évoluer la géométrie naturellement
-      // mais on ancre la pente sur corrC (pas de correction supplémentaire)
-      corr = 0;
-    }
-    result.push([c2, Math.max(0, Math.round(raw[c2]+corr))]);
-  }
-  // Garantir monotonie décroissante
-  for(let i=1;i<result.length;i++) if(result[i][1]>result[i-1][1]) result[i][1]=result[i-1][1];
-  return result;
+function removeCtrlRow(btn){
+  let row=btn.closest('.ctrl-pt-row');
+  if(row) row.remove();
 }
 
-let _savedCertData = [];
+// Lit les lignes de points de contrôle d'une cert-row → [[creux,vol],...]
+function readCtrlRows(certRow){
+  if(!certRow) return [];
+  let pts=[];
+  [...certRow.querySelectorAll('.ctrl-pt-row')].forEach(row=>{
+    let cx=parseFloat(row.querySelector('.ctrlC')?.value);
+    let v=parseFloat(row.querySelector('.ctrlV')?.value);
+    if(!isNaN(cx)&&!isNaN(v)) pts.push([cx,v]);
+  });
+  return pts.sort((a,b)=>a[0]-b[0]);
+}
+
+// Spline monotone de Steffen — passe exactement par les points, lisse et monotone
+function steffenSpline(xs, ys){
+  let n=xs.length;
+  if(n<2){ let y0=ys[0]||0; return ()=>y0; }
+  let h=[],s=[];
+  for(let i=0;i<n-1;i++){ h.push(xs[i+1]-xs[i]); s.push((ys[i+1]-ys[i])/h[i]); }
+  let yp=new Array(n);
+  yp[0]=s[0]; yp[n-1]=s[n-2];
+  for(let i=1;i<n-1;i++){
+    let p=(s[i-1]*h[i]+s[i]*h[i-1])/(h[i-1]+h[i]);
+    if(s[i-1]*s[i]<=0){ yp[i]=0; }
+    else { let mn=Math.min(Math.abs(s[i-1]),Math.abs(s[i])); yp[i]=(p>0?1:-1)*Math.min(Math.abs(p),2*mn); }
+  }
+  return function(x){
+    if(x<=xs[0]) return ys[0]+yp[0]*(x-xs[0]);
+    if(x>=xs[n-1]) return ys[n-1]+yp[n-1]*(x-xs[n-1]);
+    for(let i=0;i<n-1;i++){
+      if(xs[i]<=x&&x<=xs[i+1]){
+        let t=x-xs[i], hi=h[i];
+        let a=(yp[i]+yp[i+1]-2*s[i])/(hi*hi);
+        let b=(3*s[i]-2*yp[i]-yp[i+1])/hi;
+        return ys[i]+yp[i]*t+b*t*t+a*t*t*t;
+      }
+    }
+    return ys[n-1];
+  };
+}
 
 function selectDelta(compIdx, delta, Vt, Vn, C_mm, H_mm){
   let vcm = delta / 2;
@@ -1269,31 +1178,23 @@ function selectDelta(compIdx, delta, Vt, Vn, C_mm, H_mm){
   if(!_pendingBaremes) _pendingBaremes = [];
   if(!_savedCertData)  _savedCertData  = [];
   _pendingBaremes[compIdx] = pts;
-  _savedCertData[compIdx]  = { C: C_mm, H: H_mm, Vcm: vcm, Vt, Vn, ctrlPts: getCtrlPts(compIdx) };
-  // Mise à jour visuelle du bloc
+  _savedCertData[compIdx]  = { C: C_mm, H: H_mm, Vcm: vcm, Vt, Vn };
   let box = document.getElementById('deltaResult_'+compIdx);
   if(box){
     let vu = document.getElementById('volUnit').value;
-    box.innerHTML = `✅ delta=${delta} → Vcm=${vcm} sélectionné — `+
-      `V(0)=${pts[0][1].toLocaleString()} ${vu} | `+
-      `V(${Math.round(C_mm/10)}cm)=${(pts[Math.round(C_mm/10)]?.[1]??'?').toLocaleString()} ${vu}`;
-    // Désactiver les boutons de ce bloc
-    box.previousElementSibling && [...box.parentElement.querySelectorAll('button')].forEach(b=>b.disabled=true);
+    box.innerHTML = `✅ delta=${delta} → Vcm=${vcm} sélectionné — V(0)=${pts[0][1].toLocaleString()} ${vu} | V(${Math.round(C_mm/10)}cm)=${(pts[Math.round(C_mm/10)]?.[1]??'?').toLocaleString()} ${vu}`;
+    [...box.parentElement.querySelectorAll('button')].forEach(b=>b.disabled=true);
   }
-  // Vérifier si tous les compartiments sont prêts
   let nb = parseInt(document.getElementById('nbComp')?.value||'4');
-  let allReady = [...Array(nb).keys()].every(i => _pendingBaremes[i] !== null && _pendingBaremes[i] !== undefined);
+  let allReady = [...Array(nb).keys()].every(i => _pendingBaremes[i] != null);
   if(allReady){
     let summary = document.getElementById('baremePreview');
-    if(summary){
-      let existingMsg = summary.querySelector('.all-ready-msg');
-      if(!existingMsg){
-        let msg = document.createElement('div');
-        msg.className = 'all-ready-msg';
-        msg.style.cssText = 'margin-top:10px;padding:8px;background:rgba(0,200,150,0.1);border-radius:8px;font-size:11px;font-weight:900;color:var(--accent)';
-        msg.textContent = '✅ Tous les compartiments sont prêts — cliquez sur Ajouter à la flotte';
-        summary.appendChild(msg);
-      }
+    if(summary && !summary.querySelector('.all-ready-msg')){
+      let msg = document.createElement('div');
+      msg.className = 'all-ready-msg';
+      msg.style.cssText = 'margin-top:10px;padding:8px;background:rgba(0,200,150,0.1);border-radius:8px;font-size:11px;font-weight:900;color:var(--accent)';
+      msg.textContent = '✅ Tous les compartiments sont prêts — cliquez sur Ajouter à la flotte';
+      summary.appendChild(msg);
     }
     toast('✅ Tous les barèmes sont prêts');
   } else {
@@ -1301,15 +1202,12 @@ function selectDelta(compIdx, delta, Vt, Vn, C_mm, H_mm){
   }
 }
 
-
 function previewBaremes(){
   let nb=parseInt(document.getElementById('nbComp')?.value||'4');
   let vu=document.getElementById('volUnit').value;
   let certRows=[...document.querySelectorAll('.cert-row')];
   let compRows=[...document.querySelectorAll('.ncr')];
-  let previews=[];
-  _pendingBaremes=[];
-  _savedCertData=[];
+  let previews=[]; _pendingBaremes=[]; _savedCertData=[];
   let allOk=true;
   for(let i=0;i<nb;i++){
     let cr=certRows[i], cpr=compRows[i];
@@ -1319,24 +1217,20 @@ function previewBaremes(){
     let H=parseFloat(cr?.querySelector('.certH')?.value);
     let Vcm=parseFloat(cr?.querySelector('.certVcm')?.value);
     let Vt=parseFloat(cr?.querySelector('.certVt')?.value);
+    let ctrlPts=readCtrlRows(cr);
     let hasVcm = !isNaN(Vcm) && Vcm > 0;
-    // Minimum requis : C, H, Vt
     if(!cr||isNaN(C)||isNaN(H)||isNaN(Vt)){
       _pendingBaremes.push(null);_savedCertData.push(null);
       previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--warn)">⚠ C${i+1} ${name} : données minimales requises : C (mm), H (mm), Vt</div>`);
       allOk=false;continue;
     }
-    // Résoudre Vcm
     let resolved = resolveVcm(hasVcm?Vcm:null, Vn||Vt);
-
-    // Cas ambigu : plusieurs deltas possibles → demander à l'utilisateur
-    if(resolved.source === 'choix'){
+    // Cas ambigu : plusieurs deltas possibles — SAUF si points de contrôle fournis
+    // (les points de contrôle rendent le choix du delta inutile)
+    if(resolved.source === 'choix' && ctrlPts.length === 0){
       _pendingBaremes.push(null); _savedCertData.push(null);
       let opts = resolved.choices.map(ch =>
-        `<button class="btn secondary" style="margin:3px;font-size:11px"
-          onclick="selectDelta(${i}, ${ch.delta}, ${Vt}, ${Vn||Vt}, ${C}, ${H})">
-          delta=${ch.delta} → Vcm=${ch.vcm}
-        </button>`
+        `<button class="btn secondary" style="margin:3px;font-size:11px" onclick="selectDelta(${i}, ${ch.delta}, ${Vt}, ${Vn||Vt}, ${C}, ${H})">delta=${ch.delta} → Vcm=${ch.vcm}</button>`
       ).join('');
       previews.push(`<div style="padding:10px;background:var(--surface3);border-radius:10px;margin-bottom:8px;border:1px solid var(--warn)">
         <div style="font-size:11px;font-weight:900;color:var(--warn);margin-bottom:7px">⚠ C${i+1} — ${name} — Vn=${Vn} : plusieurs deltas possibles</div>
@@ -1346,9 +1240,8 @@ function previewBaremes(){
       </div>`);
       allOk = false; continue;
     }
-
-    let pts=generateBaremeFromCert(Vt,Vn||Vt,C,H,hasVcm?Vcm:null,getCtrlPts(i));
-    _savedCertData.push({C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:Vn||Vt,ctrlPts:getCtrlPts(i)});
+    let pts=generateBaremeFromCert(Vt,Vn||Vt,C,H,hasVcm?Vcm:null,ctrlPts);
+    _savedCertData.push({C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:Vn||Vt,ctrlPts});
     if(!pts){
       _pendingBaremes.push(null);
       previews.push(`<div style="padding:8px;background:var(--surface3);border-radius:8px;margin-bottom:6px;font-size:11px;color:var(--danger)">❌ C${i+1} ${name} : erreur de calcul</div>`);
@@ -1356,18 +1249,19 @@ function previewBaremes(){
     }
     _pendingBaremes.push(pts);
     let v0=pts[0][1],vC=pts[Math.round(C/10)]?.[1]??'?',v30=pts[30]?.[1]??'?',v45=pts[45]?.[1]??'?';
-    let ctrlCount=getCtrlPts(i).length;
-    let ctrlNote=ctrlCount>0?` + ${ctrlCount} pt${ctrlCount>1?'s':''} contrôle`:'';
     let qualBadge, borderCol;
-    if(resolved.source==='fourni'){
+    if(ctrlPts.length >= 1){
       borderCol='var(--accent)';
-      qualBadge=`<span style="background:rgba(0,200,150,0.15);color:var(--accent);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">✓ PRÉCIS — Vcm=${Vcm}${ctrlNote}</span>`;
+      qualBadge=`<span style="background:rgba(0,200,150,0.18);color:var(--accent);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">⭐ HAUTE PRÉCISION — ${ctrlPts.length} point(s) de contrôle</span>`;
+    } else if(resolved.source==='fourni'){
+      borderCol='var(--accent)';
+      qualBadge=`<span style="background:rgba(0,200,150,0.15);color:var(--accent);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">✓ PRÉCIS — Vcm=${Vcm} (certificat)</span>`;
     } else if(resolved.source==='table'){
       borderCol='var(--accent2)';
-      qualBadge=`<span style="background:rgba(0,150,255,0.12);color:var(--accent2);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">~ BON — Vcm=${resolved.vcm} (table Vn=${Vn})${ctrlNote}</span>`;
+      qualBadge=`<span style="background:rgba(0,150,255,0.12);color:var(--accent2);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">~ BON — Vcm=${resolved.vcm} (table Vn=${Vn})</span>`;
     } else {
       borderCol='var(--warn)';
-      qualBadge=`<span style="background:rgba(255,170,0,0.15);color:var(--warn);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">⚠ ESTIMATION${ctrlNote} — Vn=${Vn} hors table</span>`;
+      qualBadge=`<span style="background:rgba(255,170,0,0.15);color:var(--warn);border-radius:5px;padding:1px 6px;font-size:9px;font-weight:900">⚠ ESTIMATION — Vcm absent et Vn=${Vn} pas en table</span>`;
     }
     previews.push(`<div style="padding:10px;background:var(--surface3);border-radius:10px;margin-bottom:8px;border:1px solid ${borderCol}">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap">${qualBadge}<span style="font-size:11px;font-weight:900;color:var(--text)">C${i+1} — ${name} — 46 pts</span></div>
@@ -1381,9 +1275,9 @@ function previewBaremes(){
   }
   let box=document.getElementById('baremePreview');
   box.style.display='block';
-  box.innerHTML=`<div style="font-size:11px;font-weight:900;color:${allOk?'var(--accent)':'var(--warn)'};margin-bottom:8px">${allOk?'✅ Barèmes calculés — prêts':'⚠ Vérifier les données manquantes'}</div>${previews.join('')}`;
-  if(allOk) toast('✅ '+nb+' barème(s) calculé(s) avec succès');
-  else toast('⚠ Données incomplètes sur certains compartiments');
+  box.innerHTML=`<div style="font-size:11px;font-weight:900;color:${allOk?'var(--accent)':'var(--warn)'};margin-bottom:8px">${allOk?'✅ Barèmes calculés — prêts':'⚠ Action requise sur certains compartiments'}</div>${previews.join('')}`;
+  if(allOk) toast('✅ '+nb+' barème(s) calculé(s)');
+  else toast('⚠ Vérifiez les compartiments signalés');
 }
 
 function createTank(){
@@ -1400,7 +1294,6 @@ function createTank(){
     let cap=parseFloat(r.querySelector('.newCompCap').value)||10000;
     let bareme=(_pendingBaremes&&_pendingBaremes[i])||null;
     let certD=(_savedCertData&&_savedCertData[i])||null;
-    // Si pas de barème précalculé, tenter calcul à la volée
     if(!bareme){
       let cr=certRows[i];
       if(cr){
@@ -1408,23 +1301,29 @@ function createTank(){
         let H=parseFloat(cr.querySelector('.certH')?.value);
         let Vcm=parseFloat(cr.querySelector('.certVcm')?.value);
         let Vt=parseFloat(cr.querySelector('.certVt')?.value);
+        let ctrlPts=readCtrlRows(cr);
         let hasVcm=!isNaN(Vcm)&&Vcm>0;
         if(!isNaN(C)&&!isNaN(H)&&!isNaN(Vt)){
-          bareme=generateBaremeFromCert(Vt,cap,C,H,hasVcm?Vcm:null,getCtrlPts(i));
-          certD={C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:cap};
-        }      }
+          let res=resolveVcm(hasVcm?Vcm:null,cap);
+          if(res.source!=='choix' || ctrlPts.length>=1){
+            bareme=generateBaremeFromCert(Vt,cap,C,H,hasVcm?Vcm:null,ctrlPts);
+            certD={C,H,Vcm:hasVcm?Vcm:null,Vt,Vn:cap,ctrlPts};
+          }
+        }
+      }
     }
     if(!bareme){
-      // Barème linéaire par défaut cm par cm 0→45
       bareme=[];
       for(let c=0;c<=45;c++) bareme.push([c,Math.max(0,Math.round(cap*(1-c/45)))]);
     }
+    let st='provisoire';
+    if(certD){
+      if(certD.ctrlPts && certD.ctrlPts.length>=1){ st='haute précision'; }
+      else { let r=resolveVcm(certD.Vcm,certD.Vn); st = r.source==='fourni'?'officiel':r.source==='table'?'calculé':r.source==='choix'?'calculé':'estimation'; }
+    }
     return {
       name,cap,certData:certD,
-      meta:{status: certD ? (()=>{ let r=resolveVcm(certD.Vcm,certD.Vn); return r.source==='fourni'?'officiel':r.source==='table'?'calculé':'estimation'; })() : 'provisoire',
-            version:'v1',
-            source:certNum?'Certificat N°'+certNum:'Saisie application',
-            date:new Date().toISOString().slice(0,10),locked:false},
+      meta:{status:st,version:'v1',source:certNum?'Certificat N°'+certNum:'Saisie application',date:new Date().toISOString().slice(0,10),locked:false},
       bareme
     };
   });
@@ -1442,6 +1341,40 @@ function createTank(){
   render();
   screen('home',document.querySelectorAll('nav button')[0]);
   toast('✅ Citerne "'+n+'" ajoutée (barème 0→45 cm)');
+}
+
+function regenBaremeFromCert(){
+  if(comp().meta?.locked){toast('🔒 Barème verrouillé — déverrouillez d\'abord');return;}
+  let d=comp().certData;
+  if(!d||!d.C||!d.H||!d.Vt){toast('⚠ Données minimales manquantes (C, H, Vt requis)');return;}
+  let cps=d.ctrlPts||[];
+  let resolved=resolveVcm(d.Vcm,d.Vn||comp().cap);
+  // Si pas de points de contrôle ET cas ambigu → demander le delta
+  if(resolved.source==='choix' && cps.length===0){
+    let opts=resolved.choices.map(ch=>`delta=${ch.delta} → Vcm=${ch.vcm}`).join('\n');
+    let chosen=prompt(`Vn=${d.Vn||comp().cap} — plusieurs deltas possibles :\n${opts}\n\nEntrez le delta à utiliser :`);
+    if(!chosen)return;
+    let cd=parseFloat(chosen);
+    if(isNaN(cd)){toast('❌ Valeur invalide');return;}
+    d.Vcm=cd/2; resolved={source:'choix',vcm:d.Vcm};
+  }
+  let pts=generateBaremeFromCert(d.Vt,d.Vn||comp().cap,d.C,d.H,d.Vcm||null,cps);
+  if(!pts){toast('❌ Erreur de calcul');return;}
+  comp().bareme=pts;
+  if(cps.length>=1){
+    comp().meta.status='haute précision';
+    logAudit('Barème recalculé (spline '+cps.length+' point(s) de contrôle) C'+(ci+1)+' — '+pts.length+' points');
+    render();
+    toast('⭐ Haute précision — '+cps.length+' point(s) de contrôle ('+pts.length+' pts)');
+    return;
+  }
+  let statusMap={'fourni':'officiel','table':'calculé','choix':'calculé','absent':'estimation'};
+  let srcLabels={'fourni':'Vcm certificat','table':'Vcm table (Vn='+(d.Vn||comp().cap)+')','choix':'Vcm choisi (delta='+Math.round((d.Vcm||0)*2)+')','absent':'géométrie pure'};
+  let msgs={'fourni':'✅ Précis — Vcm certificat','table':'✅ Vcm table empirique','choix':'✅ Vcm choisi manuellement','absent':'⚠ Estimation — Vn hors table'};
+  comp().meta.status=statusMap[resolved.source]||'calculé';
+  logAudit('Barème recalculé ('+srcLabels[resolved.source]+') C'+(ci+1)+' — '+pts.length+' points');
+  render();
+  toast((msgs[resolved.source]||'✅')+' ('+pts.length+' pts)');
 }
 function deleteTank(){
   if(tanks.length<=1)return toast('⚠ Impossible de supprimer la dernière citerne');
@@ -1469,8 +1402,8 @@ function renderBareme(){
   document.getElementById('barSource').value=comp().meta.source||'';
   document.getElementById('barDate').value=comp().meta.date||'';
   document.getElementById('lockBtn').textContent=comp().meta.locked?'🔓 Déverrouiller (copie de travail)':'🔒 Verrouiller barème officiel';
-  let _sc={'officiel':'ok','calculé':'ok','provisoire':'warn','estimation':'warn'};
-  let _sn={'estimation':'⚠ Vcm absent — hors table','calculé':'~ Vcm via table empirique'};
+  let _sc={'officiel':'ok','calculé':'ok','haute précision':'ok','provisoire':'warn','estimation':'warn'};
+  let _sn={'estimation':'⚠ Vcm absent — hors table','calculé':'~ Vcm via table empirique','haute précision':'⭐ Caché sur points de contrôle réels'};
   document.getElementById('barMetaBadges').innerHTML=
     `<span class="badge2 ${_sc[comp().meta.status]||'warn'}">${comp().meta.status}</span>`+
     `<span class="badge2 ${comp().meta.locked?'danger':'warn'}">${comp().meta.locked?'🔒 verrouillé':'🔓 modifiable'}</span>`+
@@ -1484,11 +1417,13 @@ function renderBareme(){
   let d=comp().certData;
   let regenZone=document.getElementById('regenCertZone');
   let regenInfo=document.getElementById('regenCertInfo');
-  if(d&&d.C&&d.H&&d.Vcm&&d.Vt){
-    regenZone.style.display='block';
-    regenInfo.innerHTML=`Données cert. stockées : C=${d.C} mm | H=${d.H} mm | V=${d.Vcm} dm³/cm | Vt=${Number(d.Vt).toLocaleString()} dm³`;
-  } else {
-    regenZone.style.display='none';
+  if(regenZone){
+    if(d&&d.C&&d.H&&d.Vt){
+      regenZone.style.display='block';
+      regenInfo.innerHTML=`Données cert. : C=${d.C} mm | H=${d.H} mm | V=${d.Vcm||'(auto)'} dm³/cm | Vt=${Number(d.Vt).toLocaleString()} dm³`;
+    } else {
+      regenZone.style.display='none';
+    }
   }
 
   comp().bareme=(comp().bareme||[]).sort((a,b)=>Number(a[0])-Number(b[0]));
@@ -1512,33 +1447,6 @@ function renderBareme(){
     </tr>`;
   }).join('');
   drawChart();
-}
-
-function regenBaremeFromCert(){
-  if(comp().meta?.locked){toast('🔒 Barème verrouillé — déverrouillez d\'abord');return;}
-  let d=comp().certData;
-  if(!d||!d.C||!d.H||!d.Vt){toast('⚠ Données minimales manquantes (C, H, Vt requis)');return;}
-  let resolved=resolveVcm(d.Vcm,d.Vn||comp().cap);
-  // Cas ambigu : plusieurs deltas possibles
-  if(resolved.source==='choix'){
-    let opts=resolved.choices.map(ch=>`delta=${ch.delta} → Vcm=${ch.vcm}`).join('\n');
-    let chosen=prompt(`Vn=${d.Vn||comp().cap} — plusieurs deltas possibles :\n${opts}\n\nEntrez le delta à utiliser :`);
-    if(!chosen)return;
-    let chosenDelta=parseFloat(chosen);
-    if(isNaN(chosenDelta)){toast('❌ Valeur invalide');return;}
-    d.Vcm=chosenDelta/2;
-    resolved={source:'choix',vcm:d.Vcm};
-  }
-  let pts=generateBaremeFromCert(d.Vt,d.Vn||comp().cap,d.C,d.H,d.Vcm||null,d.ctrlPts||[]);
-  if(!pts){toast('❌ Erreur de calcul');return;}
-  comp().bareme=pts;
-  let statusMap={'fourni':'officiel','table':'calculé','choix':'calculé','absent':'estimation'};
-  let srcLabels={'fourni':'Vcm certificat','table':'Vcm table (Vn='+(d.Vn||comp().cap)+')','choix':'Vcm choisi (delta='+Math.round((d.Vcm||0)*2)+')','absent':'géométrie pure'};
-  let msgs={'fourni':'✅ Précis — Vcm certificat','table':'✅ Vcm table empirique','choix':'✅ Vcm choisi manuellement','absent':'⚠ Estimation — Vn hors table'};
-  comp().meta.status=statusMap[resolved.source]||'calculé';
-  logAudit('Barème recalculé ('+srcLabels[resolved.source]+') C'+(ci+1)+' — '+pts.length+' points');
-  render();
-  toast((msgs[resolved.source]||'✅')+' ('+pts.length+' pts)');
 }
 function cleanNumber(v){
   if(v===null||v===undefined)return NaN;
@@ -1832,7 +1740,7 @@ function exportCertificatPDF(){
       doc.setDrawColor(160,160,160);doc.setLineWidth(0.3);doc.rect(m,Y,cw,88,'S');
       const champG=[
         ['Type :',tank().name||'Transport Routier'],
-        ['Capacit\u00e9 nominale :',tank().comps.reduce((s,c)=>s+c.cap,0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' '+tank().volUnit],
+        ['Capacit\u00e9 nominale :',tank().comps.reduce((s,c)=>s+c.cap,0).toLocaleString()+' '+tank().volUnit],
         ['Constructeur :',tank().maker||'\u2014'],
         ['N\u00b0 de s\u00e9rie :',tank().serie||'\u2014'],
         ['Ann\u00e9e de fabrication :',tank().year||'\u2014'],
@@ -1878,35 +1786,15 @@ function exportCertificatPDF(){
       let cx=m;
       ths.forEach((h,i)=>{h.split('\n').forEach((l,li)=>doc.text(l,cx+cws[i]/2,Y+3+li*3,{align:'center'}));cx+=cws[i];});
       Y+=9;
-      // Fonction de formatage des nombres sans séparateurs locaux (évite le | de jsPDF)
-      const fmtN=v=>{
-        let s=Math.round(Number(v)).toString();
-        return s.replace(/\B(?=(\d{3})+(?!\d))/g,' ');
-      };
-      const fmtD=v=>{
-        // Pour les décimales (Vcm)
-        let n=Number(v);
-        if(isNaN(n))return String(v);
-        let s=n.toFixed(2);
-        let [int,dec]=s.split('.');
-        return int.replace(/\B(?=(\d{3})+(?!\d))/g,' ')+','+dec;
-      };
+      const fmtN=v=>Math.round(Number(v)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+      const fmtD=v=>{let n=Number(v);if(isNaN(n))return String(v);let[a,b2]=n.toFixed(2).split('.');return a.replace(/\B(?=(\d{3})+(?!\d))/g,' ')+','+b2;};
       tank().comps.forEach((c,i)=>{
         let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
-        // Distance de creux C : depuis certData si dispo, sinon dernier creux du barème
         let dc=c.certData?.C!=null ? String(Math.round(c.certData.C)) : (b.length?String(b[b.length-1][0]):'\u2014');
-        // Hauteur totale H : depuis certData si dispo
         let ht=c.certData?.H!=null ? String(Math.round(c.certData.H)) : (c.creux_max?String(c.creux_max):'\u2014');
-        // Vcm : depuis certData si dispo, sinon calculé depuis barème
         let vcm;
-        if(c.certData?.Vcm!=null){
-          vcm=fmtD(c.certData.Vcm);
-        } else {
-          let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v));
-          let vm=vols.length>=2?Math.abs(vols[0]-vols[vols.length-1])/(vols.length-1):c.cap/45;
-          vcm=fmtD(vm);
-        }
-        // Vt : depuis certData si dispo, sinon V(creux=0) du barème
+        if(c.certData?.Vcm!=null){ vcm=fmtD(c.certData.Vcm); }
+        else { let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v)); let vm=vols.length>=2?Math.abs(vols[0]-vols[vols.length-1])/(vols.length-1):c.cap/45; vcm=fmtD(vm); }
         let vt=c.certData?.Vt!=null ? fmtN(c.certData.Vt) : (b.length?fmtN(b[0][1]):fmtN(c.cap));
         if(i%2===0){doc.setFillColor(242,252,248);doc.rect(m,Y,W-m*2,8,'F');}
         cx=m;
@@ -2090,17 +1978,18 @@ function exportCertificatWord(){
       let subHd=t.comps.map(()=>`<th style="background:#333;color:#fff;border:1px solid #555;padding:3px;text-align:center;font-size:8pt">CM</th><th style="background:#333;color:#fff;border:1px solid #555;padding:3px;text-align:center;font-size:8pt">${t.volUnit.toUpperCase()}</th>`).join('');
       let recapR=t.comps.map((c,i)=>{
         let b=[...c.bareme].sort((a,bb)=>Number(a[0])-Number(bb[0]));
-        let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v));
-        let vm=vols.length?Math.round(vols.reduce((s,v)=>s+v,0)/vols.length):c.cap;
-        let dc=b.length?b[b.length-1][0]:'\u2014';
-        let ht=c.creux_max||1870;
-        let vt=b.length?Number(b[0][1]):c.cap;
+        let dc=c.certData?.C!=null ? Math.round(c.certData.C) : (b.length?b[b.length-1][0]:'\u2014');
+        let ht=c.certData?.H!=null ? Math.round(c.certData.H) : (c.creux_max||'\u2014');
+        let vm;
+        if(c.certData?.Vcm!=null){ vm=c.certData.Vcm.toLocaleString('fr-FR'); }
+        else { let vols=b.map(p=>Number(p[1])).filter(v=>!isNaN(v)); vm=(vols.length>=2?Math.abs(vols[0]-vols[vols.length-1])/(vols.length-1):c.cap/45).toLocaleString('fr-FR'); }
+        let vt=c.certData?.Vt!=null ? c.certData.Vt : (b.length?Number(b[0][1]):c.cap);
         let bg=i%2===0?'#f0fcf8':'#fff';
         return `<tr style="background:${bg}">
           <td style="font-weight:bold;color:#006050;border:1px solid #ccc;padding:4px">${i+1}\u00b0 ${c.name}</td>
           <td style="border:1px solid #ccc;padding:4px;text-align:center">${c.cap.toLocaleString('fr-FR')}</td>
           <td style="border:1px solid #ccc;padding:4px;text-align:center">${dc}</td>
-          <td style="border:1px solid #ccc;padding:4px;text-align:center">${vm.toLocaleString('fr-FR')}</td>
+          <td style="border:1px solid #ccc;padding:4px;text-align:center">${vm}</td>
           <td style="border:1px solid #ccc;padding:4px;text-align:center">${ht}</td>
           <td style="border:1px solid #ccc;padding:4px;text-align:center">${vt.toLocaleString('fr-FR')}</td>
         </tr>`;
@@ -2155,7 +2044,7 @@ table{border-collapse:collapse;width:100%;font-size:8pt}
 <thead><tr style="background:#141414;color:#fff">
 <th style="border:1px solid #555;padding:4px">COMPARTIMENT</th>
 <th style="border:1px solid #555;padding:4px">CAP. NOM. Vn (${t.volUnit})</th>
-<th style="border:1px solid #555;padding:4px">DIST. CREUX C (${t.creuxUnit})</th>
+<th style="border:1px solid #555;padding:4px">DIST. CREUX C (mm)</th>
 <th style="border:1px solid #555;padding:4px">VOL. CENT. MOY. V</th>
 <th style="border:1px solid #555;padding:4px">HT TOTALE H (mm)</th>
 <th style="border:1px solid #555;padding:4px">CAP. TOTALE Vt (${t.volUnit})</th>
@@ -2289,47 +2178,14 @@ function clearHistory(){
 function screen(id,btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  // Synchro des deux navs (sidebar desktop + nav mobile)
-  document.querySelectorAll('.sidebar-nav button, nav button').forEach(b=>b.classList.remove('active'));
-  if(btn){
-    let oc=btn.getAttribute('onclick');
-    document.querySelectorAll('.sidebar-nav button, nav button').forEach(b=>{
-      if(b.getAttribute('onclick')===oc) b.classList.add('active');
-    });
-  }
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
   let names={home:['Jaugeage','Creux → Volume'],new:['Nouvelle citerne','Gérer la flotte'],measure:['Saisie creux','Entrer une mesure'],bareme:['Barèmes','Table + courbe de jaugeage'],quality:['Contrôle qualité','Audit et conformité'],history:['Historique','Relevés terrain']};
   document.getElementById('headTitle').textContent=names[id][0];
   document.getElementById('headSub').textContent=names[id][1];
   render();
   if(id==='quality')renderQuality();
   if(id==='bareme')setTimeout(drawChart,50);
-}
-
-// ── PWA INSTALL ───────────────────────────────────────────────────────────────
-let _deferredInstall=null;
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();_deferredInstall=e;
-  setTimeout(()=>{document.getElementById('installBanner').style.display='block';},3000);
-});
-document.addEventListener('DOMContentLoaded',()=>{
-  let installBtn=document.getElementById('installBtn');
-  if(installBtn) installBtn.addEventListener('click',async()=>{
-    if(_deferredInstall){
-      _deferredInstall.prompt();
-      let r=await _deferredInstall.userChoice;
-      document.getElementById('installBanner').style.display='none';
-      if(r.outcome==='accepted') toast('✅ Application installée sur le bureau !');
-      _deferredInstall=null;
-    }
-  });
-});
-window.addEventListener('appinstalled',()=>{
-  document.getElementById('installBanner').style.display='none';
-  toast('✅ Jaugeage Pro installé avec succès !');
-});
-function showInstallHelp(){
-  if(_deferredInstall){document.getElementById('installBanner').style.display='block';}
-  else toast('Ouvrez dans Chrome/Edge → icône ⊕ dans la barre d\'adresse → Installer');
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -2344,10 +2200,8 @@ let currentTheme=localStorage.getItem('jp_theme')||'dark';
 function applyTheme(){
   document.body.classList.toggle('light',currentTheme==='light');
   let icon=currentTheme==='light'?'🌙':'☀';
-  let btn=document.getElementById('themeBtn');
-  let btnM=document.getElementById('themeBtnMobile');
-  if(btn) btn.textContent=icon;
-  if(btnM){btnM.textContent=icon;btnM.style.display='flex';}
+  let tb=document.getElementById('themeBtn'); if(tb) tb.textContent=icon;
+  document.querySelectorAll('.themeBtnCls').forEach(b=>b.textContent=icon);
 }
 function toggleTheme(){
   currentTheme=currentTheme==='dark'?'light':'dark';
@@ -2361,6 +2215,99 @@ function updateClock(){
   document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 }
 setInterval(updateClock,1000);
+
+// ── PWA : INSTALLATION SUR ORDINATEUR / TÉLÉPHONE ────────────────────────────
+let _deferredPrompt=null;
+
+// Manifest généré dynamiquement (permet l'installation même en fichier autonome)
+(function setupManifest(){
+  try{
+    const icon="data:image/svg+xml,"+encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" rx="96" fill="#0B1220"/><text x="50%" y="54%" font-size="300" text-anchor="middle" dominant-baseline="middle">⛽</text></svg>'
+    );
+    const manifest={
+      name:"Jauge-Pro — Jaugeage professionnel",
+      short_name:"Jauge-Pro",
+      description:"Calcul de barèmes et jaugeage de citernes-camions",
+      start_url:".",
+      display:"standalone",
+      background_color:"#0B1220",
+      theme_color:"#0B1220",
+      icons:[
+        {src:icon,sizes:"192x192",type:"image/svg+xml",purpose:"any"},
+        {src:icon,sizes:"512x512",type:"image/svg+xml",purpose:"any maskable"}
+      ]
+    };
+    const blob=new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"});
+    const url=URL.createObjectURL(blob);
+    let link=document.createElement("link");
+    link.rel="manifest"; link.href=url;
+    document.head.appendChild(link);
+  }catch(e){ console.warn("Manifest non généré:",e); }
+})();
+
+// Service worker minimal (cache l'app pour usage hors-ligne)
+(function setupSW(){
+  if(!("serviceWorker" in navigator)) return;
+  try{
+    const swCode=`
+      const CACHE="jaugepro-v8";
+      self.addEventListener("install",e=>{self.skipWaiting();});
+      self.addEventListener("activate",e=>{e.waitUntil(self.clients.claim());});
+      self.addEventListener("fetch",e=>{
+        e.respondWith(
+          caches.open(CACHE).then(cache=>
+            cache.match(e.request).then(hit=>{
+              const net=fetch(e.request).then(resp=>{
+                if(e.request.method==="GET"&&resp.status===200){cache.put(e.request,resp.clone());}
+                return resp;
+              }).catch(()=>hit);
+              return hit||net;
+            })
+          )
+        );
+      });
+    `;
+    const blob=new Blob([swCode],{type:"text/javascript"});
+    const swUrl=URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).catch(err=>console.warn("SW non enregistré:",err));
+  }catch(e){ console.warn("SW indisponible:",e); }
+})();
+
+// Capter l'événement d'installation (Chrome/Edge/Android)
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  _deferredPrompt=e;
+  let b=document.getElementById("installBtn");
+  if(b){ b.style.display="flex"; b.title="Installer l'application"; }
+});
+
+// Détecter si déjà installée
+window.addEventListener("appinstalled",()=>{
+  _deferredPrompt=null;
+  let b=document.getElementById("installBtn");
+  if(b) b.style.display="none";
+  toast("✅ Jauge-Pro installée sur votre appareil");
+});
+
+function installApp(){
+  if(_deferredPrompt){
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then(choice=>{
+      if(choice.outcome==="accepted") toast("✅ Installation lancée");
+      else toast("Installation annulée");
+      _deferredPrompt=null;
+    });
+  } else {
+    // Fallback : instructions manuelles selon le navigateur
+    let isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    if(isIOS){
+      toast("Sur iPhone/iPad : touchez Partager ⬆ puis « Sur l'écran d'accueil »");
+    } else {
+      toast("Pour installer : menu du navigateur (⋮) → « Installer Jauge-Pro » ou « Ajouter à l'écran d'accueil »");
+    }
+  }
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 applyTheme();
