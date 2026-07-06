@@ -944,6 +944,63 @@ function widthAtCreux(r_cm, creux_cm){
   return 2*Math.sqrt(Math.max(0, 2*r_cm*h - h*h));
 }
 
+// Steffen avec dérivées aux bornes personnalisables (par défaut : sécante)
+function steffenSplineCustom(xs, ys, slope0, slopeN){
+  let n=xs.length;
+  if(n<2){ let y0=ys[0]||0; return ()=>y0; }
+  let h=[],s=[];
+  for(let i=0;i<n-1;i++){ h.push(xs[i+1]-xs[i]); s.push((ys[i+1]-ys[i])/h[i]); }
+  let yp=new Array(n);
+  yp[0]= slope0!==undefined&&slope0!==null ? slope0 : s[0];
+  yp[n-1]= slopeN!==undefined&&slopeN!==null ? slopeN : s[n-2];
+  for(let i=1;i<n-1;i++){
+    let p=(s[i-1]*h[i]+s[i]*h[i-1])/(h[i-1]+h[i]);
+    if(s[i-1]*s[i]<=0){ yp[i]=0; }
+    else { let mn=Math.min(Math.abs(s[i-1]),Math.abs(s[i])); yp[i]=(p>0?1:-1)*Math.min(Math.abs(p),2*mn); }
+  }
+  return function(x){
+    if(x<=xs[0]) return ys[0]+yp[0]*(x-xs[0]);
+    if(x>=xs[n-1]) return ys[n-1]+yp[n-1]*(x-xs[n-1]);
+    for(let i=0;i<n-1;i++){
+      if(xs[i]<=x&&x<=xs[i+1]){
+        let t=x-xs[i], hi=h[i];
+        let a=(yp[i]+yp[i+1]-2*s[i])/(hi*hi);
+        let b=(3*s[i]-2*yp[i]-yp[i+1])/hi;
+        return ys[i]+yp[i]*t+b*t*t+a*t*t*t;
+      }
+    }
+    return ys[n-1];
+  };
+}
+
+// Intégrale numérique de widthAtCreux entre a et c
+function integralWidth(r_cm, a, c, step){
+  step = step||0.02;
+  let n=Math.max(1, Math.round((c-a)/step)); let tot=0, x=a;
+  for(let i=0;i<n;i++){ tot += widthAtCreux(r_cm, x+step/2)*step; x+=step; }
+  return tot;
+}
+
+// PAVA (Pool Adjacent Violators) : rend une série de magnitudes non-décroissante,
+// en fusionnant les segments qui violent l'ordre (moyenne pondérée par la longueur).
+// Sert à corriger les sécantes entre points de contrôle qui ralentiraient
+// artificiellement (ex: pente -25 puis -20 → fusionnées en -22,22 partout).
+function pavaIsotonic(values, weights){
+  let stack=[]; // chaque élément: {v, w, idxs:[]}
+  for(let i=0;i<values.length;i++){
+    stack.push({v:values[i], w:weights[i], idxs:[i]});
+    while(stack.length>=2 && stack[stack.length-2].v > stack[stack.length-1].v){
+      let b=stack.pop(), a=stack.pop();
+      let newW=a.w+b.w;
+      let newV=(a.v*a.w + b.v*b.w)/newW;
+      stack.push({v:newV, w:newW, idxs:[...a.idxs,...b.idxs]});
+    }
+  }
+  let result=new Array(values.length);
+  stack.forEach(seg=>{ seg.idxs.forEach(i=>{ result[i]=seg.v; }); });
+  return result;
+}
+
 function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm, controlPts){
   if(!Vt||!Vn||!C_mm||!H_mm) return null;
   let resolved = resolveVcm(Vcm, Vn);
@@ -951,60 +1008,90 @@ function generateBaremeFromCert(Vt, Vn, C_mm, H_mm, Vcm, controlPts){
   let MAX_C = 45, STEP = 0.002;
   let withVcm = resolved.vcm !== null;
 
-  // ── MÉTHODE 0 : avec points de contrôle (spline monotone de Steffen) ──
+  // ── MÉTHODE 0 : avec points de contrôle (spline géométriquement calibrée) ──
   // Priorité absolue : si l'utilisateur fournit des couples (creux,volume) lus
   // sur le barème officiel, on force la courbe à passer exactement par eux.
-  let cps = (controlPts||[]).filter(p=>p[0]>=0&&p[0]<=MAX_C);
+  //
+  // Les dérivées aux deux bornes (creux=0 et creux=45) ne sont PAS laissées à
+  // la sécante brute (qui crée un "ventre" artificiel avant le premier point
+  // et une extrapolation linéaire plate après le dernier). Elles sont calées
+  // sur la largeur réelle du cylindre à ces creux (quasi nulle près de 0,
+  // croissante vers 45), ce qui donne une courbe dont la pente évolue de
+  // façon physiquement cohérente sur toute la plage mesurée.
+  let cps = (controlPts||[]).filter(p=>p[0]>=0&&p[0]<=MAX_C).sort((a,b)=>a[0]-b[0]);
   if(cps.length >= 1){
-    // Construire la liste des nœuds avec les positions de creux RÉELLES (non
-    // arrondies). Un point "16.1:5300" reste à 16.1, pas rangé dans la case 16,
-    // ce qui évite que le creux entier 16 retourne brutalement 5300.
-    // Le couple (C,Vn) n'est PAS forcé : Vn (capacité autorisée) ne correspond
-    // pas toujours au volume réel au creux C ; les points de contrôle priment.
-    let nodeMap = new Map();
-    nodeMap.set(0, Vt);                    // point dur fiable : V(0)=Vt
-    cps.forEach(p=>{ nodeMap.set(p[0], p[1]); });  // position exacte conservée
+    let xs=[0, ...cps.map(p=>p[0])];
+    let ysOrig=[Vt, ...cps.map(p=>p[1])];
 
-    // Point à 45 si absent : extrapolation de la pente du dernier intervalle
-    if(!nodeMap.has(MAX_C)){
-      let xsK=[...nodeMap.keys()].sort((a,b)=>a-b);
-      let last=xsK[xsK.length-1], prev=xsK[xsK.length-2]??0;
-      let slope=(nodeMap.get(last)-nodeMap.get(prev))/((last-prev)||1);
-      nodeMap.set(MAX_C, nodeMap.get(last) + slope*(MAX_C-last));
+    // ── CORRECTION PAVA DES SÉCANTES (option 2) ─────────────────────────────
+    // Entre points de contrôle consécutifs, la pente moyenne (sécante) doit
+    // être de plus en plus forte (le centre géométrique étant hors plage,
+    // cf. plus bas). Si une sécante est plus FAIBLE que la précédente, on
+    // fusionne les segments concernés (moyenne pondérée par leur longueur) :
+    // cela ajuste légèrement les points de contrôle intermédiaires (jamais
+    // le tout premier ni le dernier plus que nécessaire) pour éliminer les
+    // petites remontées de pente sans dénaturer la forme globale.
+    let ys = ysOrig;
+    if(xs.length >= 3){
+      let lens=[], mags=[];
+      for(let i=0;i<xs.length-1;i++){
+        lens.push(xs[i+1]-xs[i]);
+        mags.push(-(ysOrig[i+1]-ysOrig[i])/(xs[i+1]-xs[i]));
+      }
+      let fixedMags = pavaIsotonic(mags, lens);
+      ys = [ysOrig[0]];
+      for(let i=0;i<fixedMags.length;i++) ys.push(ys[ys.length-1] - fixedMags[i]*lens[i]);
     }
-    let xs = [...nodeMap.keys()].sort((a,b)=>a-b);
-    let ys = xs.map(x=>nodeMap.get(x));
-    let spl = steffenSpline(xs, ys);
-    // Valeurs continues lisses à chaque creux entier
+    let x1=xs[1];
+
+    // Pente au creux 0 : calibrée pour que l'intégrale géométrique sur [0,x1]
+    // corresponde exactement à la baisse de volume observée (Vt - y1).
+    let Iw1 = integralWidth(r_cm, 0, x1);
+    let kStart = Iw1>0 ? (Vt - ys[1]) / Iw1 : 0;
+    let slope0 = -kStart * widthAtCreux(r_cm, 0);   // ≈ 0 près du sommet du cylindre
+    let s0 = (ys[1]-ys[0])/(xs[1]-xs[0]);            // sécante moyenne du 1er segment
+
+    // Pente à l'extrémité connue la plus basse (dernier point de contrôle) :
+    // estimée depuis les deux derniers points si possible, sinon depuis
+    // l'accélération implicite du premier segment (2×sécante − pente initiale).
+    let xLast=xs[xs.length-1], yLast=ys[ys.length-1], sLast;
+    if(cps.length>=2){
+      let xPrev=xs[xs.length-2], yPrev=ys[ys.length-2];
+      sLast=(yLast-yPrev)/(xLast-xPrev);
+    } else {
+      sLast = 2*s0 - slope0;
+    }
+    let wLast=widthAtCreux(r_cm, xLast);
+    let kTail = wLast>0 ? -sLast / wLast : 0;
+    let IwTail = integralWidth(r_cm, xLast, MAX_C);
+    let v45 = yLast - kTail*IwTail;
+    xs.push(MAX_C); ys.push(v45);
+    let slopeN = -kTail * widthAtCreux(r_cm, MAX_C);
+
+    let spl = steffenSplineCustom(xs, ys, slope0, slopeN);
     let raw=[];
     for(let c2=0;c2<=MAX_C;c2++) raw.push(spl(c2));
-    // Arrondi initial
+
     let result=[];
     for(let c2=0;c2<=MAX_C;c2++) result.push(Math.max(0, Math.round(raw[c2])));
     result[0]=Math.round(Vt);
-    // Points de contrôle à un creux entier : valeur exacte forcée
-    cps.forEach(p=>{ if(Number.isInteger(p[0])) result[p[0]]=Math.round(p[1]); });
-    // Monotonie du volume
+    cps.forEach((p,i)=>{ if(Number.isInteger(p[0])) result[p[0]]=Math.round(ys[i+1]); });
     for(let i=1;i<=MAX_C;i++) if(result[i]>result[i-1]) result[i]=result[i-1];
 
-    // ── LISSAGE DES DELTAS (option A) ───────────────────────────────────────
-    // Élimine les micro-oscillations d'arrondi pour que la variation par cm
-    // évolue régulièrement : elle s'accentue jusqu'au centre de la citerne
-    // (diamètre max) puis s'atténue. On ne s'écarte jamais de plus de ~1 dm³
-    // de la valeur calculée, et les points de contrôle restent verrouillés.
-    let deltaRaw=[];
-    for(let i=1;i<=MAX_C;i++) deltaRaw.push(raw[i]-raw[i-1]);
-    let centerIdx=0, minD=Infinity;
-    for(let i=0;i<deltaRaw.length;i++){ if(deltaRaw[i]<minD){minD=deltaRaw[i];centerIdx=i;} }
+    // ── LISSAGE DES DELTAS (nettoyage du bruit d'arrondi résiduel) ──────────
+    // Le centre géométrique (diamètre max) est à creux=H_cm/2, quasi toujours
+    // au-delà de 45cm pour une citerne-camion : on impose donc une variation
+    // par cm strictement croissante sur toute la plage, sans jamais chercher
+    // de "centre" dans les données bruitées.
+    let geomCenter = H_cm/2;
+    let centerIdx = geomCenter>=MAX_C ? MAX_C : Math.round(geomCenter);
     let locked=new Set([0]);
     cps.forEach(p=>{ if(Number.isInteger(p[0])) locked.add(p[0]); });
-    for(let pass=0; pass<6; pass++){
+    for(let pass=0; pass<8; pass++){
       for(let i=1;i<MAX_C;i++){
         if(locked.has(i)) continue;
         let dPrev=result[i]-result[i-1];
         let dNext=result[i+1]-result[i];
-        // Avant le centre : la pente doit s'accentuer (dNext ≤ dPrev) ;
-        // après le centre : elle doit s'atténuer (dNext ≥ dPrev).
         let needFix = (i<=centerIdx) ? (dNext > dPrev) : (dNext < dPrev);
         if(needFix){
           let cand=result[i] + (i<=centerIdx ? 1 : -1);
